@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Better Web Insta",
+  "version": "1.0.0",
+  "description": "Shift-click to instantly unfollow/remove on instagram.com, plus a 'doesn't follow you back' subsection with bulk unfollow.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://www.instagram.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://www.instagram.com/*"],
+      "run_at": "document_idle",
+      "js": [
+        "src/config.js",
+        "src/ig-api.js",
+        "src/queue.js",
+        "src/ui.js",
+        "src/feature1.js",
+        "src/feature2.js"
+      ],
+      "css": ["styles.css"]
+    }
+  ],
+  "action": {
+    "default_title": "Better Web Insta",
+    "default_popup": "popup.html"
+  }
+}
