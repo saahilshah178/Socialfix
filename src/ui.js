@@ -12,6 +12,31 @@
     return Array.from(document.querySelectorAll('[role="dialog"]'));
   }
 
+  // Does `dialog` show `label` ("Following"/"Followers") as its modal title?
+  // The title lives in the header — not inside a row's action button (which
+  // also reads "Following") nor inside a row link — so we exclude those.
+  function dialogTitleIs(dialog, label) {
+    const candidates = dialog.querySelectorAll("div, span, h1, h2, h3");
+    for (const el of candidates) {
+      if (text(el) !== label) continue;
+      if (el.closest('button, [role="button"], a')) continue;
+      return true;
+    }
+    return false;
+  }
+
+  // Find the scrollable list container inside a list dialog (the element that
+  // actually scrolls the rows). Used to place our panel and to resize the modal.
+  function findScrollContainer(dialog) {
+    for (const el of dialog.querySelectorAll("*")) {
+      if (el.scrollHeight > el.clientHeight + 20) {
+        const oy = getComputedStyle(el).overflowY;
+        if (oy === "auto" || oy === "scroll") return el;
+      }
+    }
+    return null;
+  }
+
   // Find a <button> (or [role="button"]) within `root` whose trimmed text
   // exactly matches `label`.
   function findButtonByText(root, label) {
@@ -52,6 +77,17 @@
     const header = document.createElement("div");
     header.className = "bwi-section__header";
 
+    // Collapse toggle so the section can be folded away to give the native
+    // list room. The caret + title together act as the toggle.
+    const titleWrap = document.createElement("button");
+    titleWrap.className = "bwi-section__toggle";
+    titleWrap.type = "button";
+
+    const caret = document.createElement("span");
+    caret.className = "bwi-caret";
+    caret.textContent = "▾";
+    titleWrap.appendChild(caret);
+
     const title = document.createElement("div");
     title.className = "bwi-section__title";
     title.textContent =
@@ -60,7 +96,8 @@
         : `${nonFollowers.length} ${
             nonFollowers.length === 1 ? "person doesn't" : "people don't"
           } follow you back`;
-    header.appendChild(title);
+    titleWrap.appendChild(title);
+    header.appendChild(titleWrap);
 
     const actions = document.createElement("div");
     actions.className = "bwi-section__actions";
@@ -134,6 +171,9 @@
     unfollowAllBtn.addEventListener("click", () => handlers.onUnfollowAll());
     stopBtn.addEventListener("click", () => handlers.onStop());
     refreshBtn.addEventListener("click", () => handlers.onRefresh());
+    titleWrap.addEventListener("click", () =>
+      root.classList.toggle("bwi-section--collapsed")
+    );
 
     function setProgress(msg, { busy } = {}) {
       if (msg == null) {
@@ -175,6 +215,8 @@
   BWI.ui = {
     text,
     getDialogs,
+    dialogTitleIs,
+    findScrollContainer,
     findButtonByText,
     toast,
     renderSubsection,
