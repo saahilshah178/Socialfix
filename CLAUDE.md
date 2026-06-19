@@ -4,10 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A personal, unpacked Manifest V3 Chrome extension that augments **instagram.com** with two features (see `README.md` for user-facing detail):
+A personal, unpacked Manifest V3 Chrome extension that augments **instagram.com** with three features (see `README.md` for user-facing detail):
 
 1. **Shift-click instant unfollow/remove** in the Following and Followers list modals.
 2. A **"doesn't follow you back" subsection** injected into your own profile's Following modal, with throttled bulk unfollow.
+3. **Bigger Followers/Following modals** — widened/heightened so there's room for both the native list and the Feature 2 subsection (toggle via `BIGGER_MODALS` in `src/config.js`).
 
 ## Commands
 
@@ -21,12 +22,13 @@ There is **no build step, no package manager, and no test suite** — it's plain
 
 Content scripts run in Chrome's **isolated world** and share one `window` object. Everything hangs off a single `window.BWI` namespace; each file does `const BWI = (window.BWI = window.BWI || {})` and attaches its exports (`BWI.config`, `BWI.api`, `BWI.queue`, `BWI.ui`, etc.).
 
-**Load order is significant** and is fixed in `manifest.json` `content_scripts.js`: `config → ig-api → queue → ui → feature1 → feature2`. A file may only reference `BWI.*` symbols defined by an earlier file. If you add a file or a cross-file dependency, update this order.
+**Load order is significant** and is fixed in `manifest.json` `content_scripts.js`: `config → ig-api → queue → ui → feature1 → feature2 → feature3`. A file may only reference `BWI.*` symbols defined by an earlier file. If you add a file or a cross-file dependency, update this order. Shared DOM helpers used by more than one feature (e.g. `ui.dialogTitleIs`, `ui.findScrollContainer`) live in `src/ui.js`.
 
 The two features are deliberately built on **different strategies**:
 
 - **Feature 1 (`src/feature1.js`) uses no API at all.** A capture-phase click listener flags a Shift+click on a row's trigger button, then a `MutationObserver` auto-clicks the destructive button in Instagram's *own* confirmation dialog once it appears (<100ms, looks instant). This rides Instagram's native flow, so it's the most resilient part. It never calls the private API.
-- **Feature 2 (`src/feature2.js` + `src/ig-api.js`) uses Instagram's private web API.** `ig-api.js` calls `/api/v1/friendships/...` same-origin with `credentials: 'include'`, so the session cookies are sent automatically — there is no login/auth code. It paginates the full following + followers lists, computes the set difference, and unfollows. This is the fragile part: endpoint paths and required headers (`X-IG-App-ID`, `X-CSRFToken`) are all isolated in `ig-api.js`.
+- **Feature 2 (`src/feature2.js` + `src/ig-api.js`) uses Instagram's private web API.** `ig-api.js` calls `/api/v1/friendships/...` same-origin with `credentials: 'include'`, so the session cookies are sent automatically — there is no login/auth code. It paginates the full following + followers lists, computes the set difference, and unfollows. This is the fragile part: endpoint paths and required headers (`X-IG-App-ID`, `X-CSRFToken`, `X-IG-WWW-Claim`) are all isolated in `ig-api.js`. Detection does **not** depend on the URL changing to `/<user>/following/` (Instagram opens the list as a client-side modal and may not push that URL); it identifies the modal by ARIA role + title text and confirms ownership via the profile path segment.
+- **Feature 3 (`src/feature3.js`) is pure CSS/DOM, no API.** It finds the Followers/Following list dialog (any profile) and tags it + its scroll container with `bwi-big-*` classes; `styles.css` does the resizing with `!important` so it survives React re-renders. Because Instagram virtualizes the list, it dispatches a `resize` event after tagging so the windowing recomputes visible rows.
 
 **Bulk actions go through one place.** `src/queue.js` is a singleton queue — the only path for "Unfollow all." It enforces randomized inter-action delays plus session/daily caps (daily count persisted in `chrome.storage.local`), and stops on Instagram action-blocks (429 / `feedback_required`). It emits progress events consumed by the subsection UI and the popup. Do not add a second bulk path that bypasses these caps; account safety depends on this throttling.
 

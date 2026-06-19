@@ -49,19 +49,6 @@
     return segs[0] === ownUsername.toLowerCase() && segs[1] === "following";
   }
 
-  // Does this dialog show `label` ("Following"/"Followers") as its modal title?
-  // The title lives in the header — not inside a row's action button (which
-  // also reads "Following") nor inside a row link — so we exclude those.
-  function dialogHasTitle(dialog, label) {
-    const candidates = dialog.querySelectorAll("div, span, h1, h2, h3");
-    for (const el of candidates) {
-      if (ui.text(el) !== label) continue;
-      if (el.closest('button, [role="button"], a')) continue;
-      return true;
-    }
-    return false;
-  }
-
   // Locate the dialog that is OUR following list. Identify it positively
   // (URL suffix OR title === "Following") and skip the followers modal so we
   // never inject the wrong list.
@@ -69,21 +56,8 @@
     if (!isOnOwnProfile()) return null;
     const urlFollowing = urlSaysFollowing();
     for (const d of ui.getDialogs()) {
-      if (dialogHasTitle(d, cfg.LABELS.followers)) continue; // not the followers list
-      if (urlFollowing || dialogHasTitle(d, cfg.LABELS.following)) return d;
-    }
-    return null;
-  }
-
-  // Find the scrollable list container inside the dialog so we can insert our
-  // panel just above it (below the modal header/search).
-  function findScrollContainer(dialog) {
-    const all = dialog.querySelectorAll("*");
-    for (const el of all) {
-      if (el.scrollHeight > el.clientHeight + 20) {
-        const oy = getComputedStyle(el).overflowY;
-        if (oy === "auto" || oy === "scroll") return el;
-      }
+      if (ui.dialogTitleIs(d, cfg.LABELS.followers)) continue; // not the followers list
+      if (urlFollowing || ui.dialogTitleIs(d, cfg.LABELS.following)) return d;
     }
     return null;
   }
@@ -95,7 +69,7 @@
     if (!dialog.isConnected) return;
     if (dialog.querySelector('[data-bwi="subsection"]')) return;
     const hasRows = dialog.querySelector('a[href^="/"] img');
-    const container = findScrollContainer(dialog);
+    const container = ui.findScrollContainer(dialog);
     if (hasRows && container) {
       cb(container);
     } else if (tries < 50) {
@@ -201,15 +175,16 @@
     whenReady(dialog, async (container) => {
       // Loading placeholder.
       const loading = document.createElement("div");
-      loading.className = "bwi-section";
+      loading.className = "bwi-section bwi-loading";
       loading.setAttribute("data-bwi", "loading");
-      loading.textContent = "Better Web Insta — finding who doesn't follow you back…";
+      loading.textContent = "Finding who doesn't follow you back…";
       container.parentNode.insertBefore(loading, container);
 
       let nonFollowers;
       try {
         nonFollowers = await computeNonFollowers();
       } catch (err) {
+        loading.classList.remove("bwi-loading");
         loading.textContent =
           "Couldn't load lists (Instagram API error). Try Refresh.";
         console.warn("[BWI] computeNonFollowers failed", err);

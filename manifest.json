@@ -15,7 +15,8 @@
         "src/queue.js",
         "src/ui.js",
         "src/feature1.js",
-        "src/feature2.js"
+        "src/feature2.js",
+        "src/feature3.js"
       ],
       "css": ["styles.css"]
     }

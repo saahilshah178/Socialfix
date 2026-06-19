@@ -1,12 +1,59 @@
 /* Better Web Insta — injected subsection + toast styles.
    Scoped under bwi- class names so we never collide with Instagram. */
 
+/* Feature 3: enlarge Instagram's own Followers/Following modals. We tag the
+   dialog + its scroll container (see feature3.js) and size them here with
+   !important so the rules survive Instagram's React re-renders. The dialog
+   becomes a flex column so our injected section keeps its content height and
+   the native list (.bwi-big-scroll) grows to fill the rest. */
+[role="dialog"].bwi-big-dialog {
+  width: var(--bwi-modal-w, 680px) !important;
+  max-width: 95vw !important;
+  height: var(--bwi-modal-h, 85vh) !important;
+  max-height: var(--bwi-modal-h, 85vh) !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.bwi-big-scroll {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+}
+
 .bwi-section {
   border-bottom: 1px solid rgba(168, 168, 168, 0.18);
   padding: 12px 16px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: inherit;
   color: inherit;
+  flex: 0 0 auto;
+}
+
+/* Loading placeholder with a spinner. */
+.bwi-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+.bwi-loading::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 2px solid rgba(168, 168, 168, 0.4);
+  border-top-color: #0095f6;
+  animation: bwi-spin 0.8s linear infinite;
+}
+
+@keyframes bwi-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .bwi-section__header {
@@ -15,6 +62,37 @@
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+/* The caret + title act as a single collapse toggle. */
+.bwi-section__toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  min-width: 0;
+}
+
+.bwi-caret {
+  font-size: 11px;
+  opacity: 0.7;
+  transition: transform 0.15s ease;
+}
+
+.bwi-section--collapsed .bwi-caret {
+  transform: rotate(-90deg);
+}
+
+.bwi-section--collapsed .bwi-list,
+.bwi-section--collapsed .bwi-progress {
+  display: none !important;
 }
 
 .bwi-section__title {
@@ -35,7 +113,9 @@
 
 .bwi-list {
   margin-top: 10px;
-  max-height: 260px;
+  /* Bounded + scrollable so the section never crowds out the native list,
+     and scales up a little on the enlarged (Feature 3) modal. */
+  max-height: min(45vh, 340px);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
