@@ -26,6 +26,10 @@
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+  // Instagram's WWW-Claim handshake: send "0" initially, then echo back
+  // whatever the server returns in X-IG-Set-WWW-Claim on later requests.
+  let wwwClaim = "0";
+
   // Thrown for non-2xx responses so callers can inspect `.status`
   // (e.g. 429 / 400 action-block).
   class IgApiError extends Error {
@@ -44,6 +48,11 @@
         "X-ASBD-ID": cfg.ASBD_ID,
         "X-CSRFToken": getCsrf() || "",
         "X-Requested-With": "XMLHttpRequest",
+        // The real web client sends a WWW-Claim that starts at "0" and is then
+        // echoed back from the server's X-IG-Set-WWW-Claim response header.
+        // "0" is the safe default and is enough for same-origin credentialed
+        // requests; some friendships responses 4xx without it.
+        "X-IG-WWW-Claim": wwwClaim,
       },
       opts.headers || {}
     );
@@ -54,6 +63,9 @@
       body: opts.body,
       credentials: "include",
     });
+
+    const setClaim = res.headers.get("x-ig-set-www-claim");
+    if (setClaim) wwwClaim = setClaim;
 
     let data = null;
     const text = await res.text();

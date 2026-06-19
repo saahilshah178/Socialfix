@@ -29,10 +29,50 @@
     .catch(() => {});
   ownId = api.getOwnUserId();
 
-  function isOwnFollowingPath() {
+  // First path segment of the current URL, e.g. "/jane/following/" -> "jane".
+  function firstPathSegment() {
+    return location.pathname.toLowerCase().split("/").filter(Boolean)[0] || null;
+  }
+
+  // Are we currently viewing OUR OWN profile (with or without a /following/
+  // suffix)? Opening the list is a client-side modal and Instagram does not
+  // reliably push "/following/" into the URL, so we must NOT depend on that
+  // suffix — only on the profile owner matching us.
+  function isOnOwnProfile() {
+    return !!ownUsername && firstPathSegment() === ownUsername.toLowerCase();
+  }
+
+  // True only when the URL explicitly carries the /<own>/following/ suffix.
+  function urlSaysFollowing() {
     if (!ownUsername) return false;
-    const p = location.pathname.toLowerCase().replace(/\/+$/, "");
-    return p === `/${ownUsername.toLowerCase()}/following`;
+    const segs = location.pathname.toLowerCase().split("/").filter(Boolean);
+    return segs[0] === ownUsername.toLowerCase() && segs[1] === "following";
+  }
+
+  // Does this dialog show `label` ("Following"/"Followers") as its modal title?
+  // The title lives in the header — not inside a row's action button (which
+  // also reads "Following") nor inside a row link — so we exclude those.
+  function dialogHasTitle(dialog, label) {
+    const candidates = dialog.querySelectorAll("div, span, h1, h2, h3");
+    for (const el of candidates) {
+      if (ui.text(el) !== label) continue;
+      if (el.closest('button, [role="button"], a')) continue;
+      return true;
+    }
+    return false;
+  }
+
+  // Locate the dialog that is OUR following list. Identify it positively
+  // (URL suffix OR title === "Following") and skip the followers modal so we
+  // never inject the wrong list.
+  function findOwnFollowingDialog() {
+    if (!isOnOwnProfile()) return null;
+    const urlFollowing = urlSaysFollowing();
+    for (const d of ui.getDialogs()) {
+      if (dialogHasTitle(d, cfg.LABELS.followers)) continue; // not the followers list
+      if (urlFollowing || dialogHasTitle(d, cfg.LABELS.following)) return d;
+    }
+    return null;
   }
 
   // Find the scrollable list container inside the dialog so we can insert our
@@ -50,7 +90,10 @@
 
   // Resolve once the modal's row list exists (rows load async after open).
   function whenReady(dialog, cb, tries = 0) {
-    if (dialog.dataset.bwiInjected) return;
+    // Stop polling if the modal closed or our section is already built. (Don't
+    // bail on the "loading" marker that inject() set — that's us, mid-flight.)
+    if (!dialog.isConnected) return;
+    if (dialog.querySelector('[data-bwi="subsection"]')) return;
     const hasRows = dialog.querySelector('a[href^="/"] img');
     const container = findScrollContainer(dialog);
     if (hasRows && container) {
@@ -188,19 +231,19 @@
   }
 
   function maybeInject() {
-    if (!isOwnFollowingPath()) return;
-    for (const dialog of ui.getDialogs()) {
-      if (!dialog.dataset.bwiInjected) inject(dialog);
+    if (!ownUsername) return;
+    const dialogs = ui.getDialogs();
+    if (dialogs.length === 0) {
+      cache = null; // every modal closed — drop cached lists
+      return;
     }
+    // Already handled this modal — avoid re-scanning on every mutation.
+    if (dialogs.some((d) => d.dataset.bwiInjected)) return;
+    const dialog = findOwnFollowingDialog();
+    if (dialog) inject(dialog);
   }
 
-  const observer = new MutationObserver(() => {
-    if (isOwnFollowingPath()) {
-      maybeInject();
-    } else {
-      cache = null; // left the following modal — drop cached lists
-    }
-  });
+  const observer = new MutationObserver(() => maybeInject());
   observer.observe(document.body, { childList: true, subtree: true });
 
   // Initial check in case the modal is already open on load.

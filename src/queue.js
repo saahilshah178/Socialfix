@@ -37,9 +37,14 @@
     if (err.status === 429) return true;
     const b = err.body;
     if (b && typeof b === "object") {
-      if (b.spam || b.feedback_required) return true;
-      if (typeof b.message === "string" && /block|spam|wait/i.test(b.message))
-        return true;
+      // Instagram's action-block most commonly comes back as HTTP 400 with
+      // message:"feedback_required" and/or spam:true (status varies, so the
+      // body is the reliable signal — not the HTTP code alone).
+      if (b.spam === true || b.feedback_required) return true;
+      if (typeof b.message === "string") {
+        if (b.message === "feedback_required") return true;
+        if (/block|spam|wait/i.test(b.message)) return true;
+      }
     }
     return false;
   }
