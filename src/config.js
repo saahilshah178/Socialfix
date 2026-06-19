@@ -37,6 +37,7 @@
     // support another language, swap these for that locale's labels.
     LABELS: {
       following: "Following",
+      followers: "Followers",
       unfollow: "Unfollow",
       remove: "Remove",
       cancel: "Cancel",
