@@ -77,11 +77,20 @@
     }
   }
 
-  async function computeNonFollowers() {
+  async function computeNonFollowers(onProgress) {
     if (cache) return cache.nonFollowers;
+    let nFollowing = 0;
+    let nFollowers = 0;
+    const report = () => onProgress && onProgress(nFollowing, nFollowers);
     const [following, followers] = await Promise.all([
-      api.fetchAllFollowing(ownId),
-      api.fetchAllFollowers(ownId),
+      api.fetchAllFollowing(ownId, (n) => {
+        nFollowing = n;
+        report();
+      }),
+      api.fetchAllFollowers(ownId, (n) => {
+        nFollowers = n;
+        report();
+      }),
     ]);
     const followerPks = new Set(followers.map((u) => u.pk));
     const nonFollowers = following.filter((u) => !followerPks.has(u.pk));
@@ -177,12 +186,16 @@
       const loading = document.createElement("div");
       loading.className = "bwi-section bwi-loading";
       loading.setAttribute("data-bwi", "loading");
-      loading.textContent = "Finding who doesn't follow you back…";
+      const loadingText = document.createElement("span");
+      loadingText.textContent = "Finding who doesn't follow you back…";
+      loading.appendChild(loadingText);
       container.parentNode.insertBefore(loading, container);
 
       let nonFollowers;
       try {
-        nonFollowers = await computeNonFollowers();
+        nonFollowers = await computeNonFollowers((fwing, fwers) => {
+          loadingText.textContent = `Scanning your lists… ${fwing} following, ${fwers} followers`;
+        });
       } catch (err) {
         loading.classList.remove("bwi-loading");
         loading.textContent =

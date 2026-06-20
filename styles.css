@@ -1,25 +1,10 @@
 /* Better Web Insta — injected subsection + toast styles.
    Scoped under bwi- class names so we never collide with Instagram. */
 
-/* Feature 3: enlarge Instagram's own Followers/Following modals. We tag the
-   dialog + its scroll container (see feature3.js) and size them here with
-   !important so the rules survive Instagram's React re-renders. The dialog
-   becomes a flex column so our injected section keeps its content height and
-   the native list (.bwi-big-scroll) grows to fill the rest. */
-[role="dialog"].bwi-big-dialog {
-  width: var(--bwi-modal-w, 680px) !important;
-  max-width: 95vw !important;
-  height: var(--bwi-modal-h, 85vh) !important;
-  max-height: var(--bwi-modal-h, 85vh) !important;
-  display: flex !important;
-  flex-direction: column !important;
-}
-
-.bwi-big-scroll {
-  flex: 1 1 auto !important;
-  min-height: 0 !important;
-  max-height: none !important;
-}
+/* Feature 3 (bigger modals) sizes the real card + scroll container with inline
+   !important styles set from feature3.js — that's required because the size
+   depends on the live viewport and the exact element is found at runtime. The
+   .bwi-big-card / .bwi-big-scroll classes are just hooks/markers. */
 
 .bwi-section {
   border-bottom: 1px solid rgba(168, 168, 168, 0.18);
