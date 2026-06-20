@@ -8,6 +8,17 @@
 
   const text = (el) => (el && el.textContent ? el.textContent.trim() : "");
 
+  // Neutral placeholder shown if a profile picture fails to load, so a broken
+  // image icon never appears.
+  const AVATAR_FALLBACK =
+    "data:image/svg+xml;utf8," +
+    encodeURIComponent(
+      "<svg xmlns='http://www.w3.org/2000/svg' width='44' height='44'>" +
+        "<circle cx='22' cy='22' r='22' fill='#c7c7c7'/>" +
+        "<circle cx='22' cy='18' r='8' fill='#fff'/>" +
+        "<path d='M8 39c1-9 27-9 28 0z' fill='#fff'/></svg>"
+    );
+
   function getDialogs() {
     return Array.from(document.querySelectorAll('[role="dialog"]'));
   }
@@ -29,6 +40,9 @@
   // actually scrolls the rows). Used to place our panel and to resize the modal.
   function findScrollContainer(dialog) {
     for (const el of dialog.querySelectorAll("*")) {
+      // Skip our own injected scrollers (the subsection list) so we always
+      // resolve Instagram's native list, not ours.
+      if (el.closest("[data-bwi]")) continue;
       if (el.scrollHeight > el.clientHeight + 20) {
         const oy = getComputedStyle(el).overflowY;
         if (oy === "auto" || oy === "scroll") return el;
@@ -82,6 +96,7 @@
     const titleWrap = document.createElement("button");
     titleWrap.className = "bwi-section__toggle";
     titleWrap.type = "button";
+    titleWrap.title = "Show/hide this list";
 
     const caret = document.createElement("span");
     caret.className = "bwi-caret";
@@ -141,9 +156,19 @@
 
       const avatar = document.createElement("img");
       avatar.className = "bwi-row__avatar";
-      avatar.src = u.profile_pic_url;
-      avatar.referrerPolicy = "no-referrer";
       avatar.alt = "";
+      avatar.loading = "lazy";
+      // referrerPolicy MUST be set BEFORE src — otherwise the fetch kicks off
+      // under the page's default policy and ignores it. Instagram's image CDN
+      // rejects requests carrying an unexpected referrer, so "no-referrer" is
+      // the reliable choice (this ordering bug is what left avatars broken).
+      avatar.referrerPolicy = "no-referrer";
+      avatar.addEventListener("error", () => {
+        if (avatar.dataset.bwiFallback) return; // avoid loops
+        avatar.dataset.bwiFallback = "1";
+        avatar.src = AVATAR_FALLBACK;
+      });
+      avatar.src = u.profile_pic_url || AVATAR_FALLBACK;
 
       const meta = document.createElement("a");
       meta.className = "bwi-row__meta";
@@ -171,9 +196,10 @@
     unfollowAllBtn.addEventListener("click", () => handlers.onUnfollowAll());
     stopBtn.addEventListener("click", () => handlers.onStop());
     refreshBtn.addEventListener("click", () => handlers.onRefresh());
-    titleWrap.addEventListener("click", () =>
-      root.classList.toggle("bwi-section--collapsed")
-    );
+    titleWrap.addEventListener("click", () => {
+      const collapsed = root.classList.toggle("bwi-section--collapsed");
+      caret.textContent = collapsed ? "▸ Show" : "▾ Hide";
+    });
 
     function setProgress(msg, { busy } = {}) {
       if (msg == null) {

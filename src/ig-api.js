@@ -96,8 +96,10 @@
     };
   }
 
-  // Paginate one of the friendship list endpoints to completion.
-  async function fetchAllList(kind, userId) {
+  // Paginate one of the friendship list endpoints to completion. `onProgress`
+  // (optional) is called with the running total after each page so the UI can
+  // show live load feedback.
+  async function fetchAllList(kind, userId, onProgress) {
     const out = [];
     let maxId = null;
     // Hard ceiling so a pathological response can't loop forever.
@@ -108,15 +110,18 @@
         `/api/v1/friendships/${userId}/${kind}/?${params.toString()}`
       );
       (data.users || []).forEach((u) => out.push(pickUser(u)));
+      if (onProgress) onProgress(out.length);
       maxId = data.next_max_id ? String(data.next_max_id) : null;
       if (!maxId) break;
-      await sleep(cfg.PAGE_DELAY_MS);
+      if (cfg.PAGE_DELAY_MS) await sleep(cfg.PAGE_DELAY_MS);
     }
     return out;
   }
 
-  const fetchAllFollowing = (userId) => fetchAllList("following", userId);
-  const fetchAllFollowers = (userId) => fetchAllList("followers", userId);
+  const fetchAllFollowing = (userId, onProgress) =>
+    fetchAllList("following", userId, onProgress);
+  const fetchAllFollowers = (userId, onProgress) =>
+    fetchAllList("followers", userId, onProgress);
 
   // Resolve and cache the logged-in user's own username (needed to confirm
   // a Following modal belongs to *your* profile).

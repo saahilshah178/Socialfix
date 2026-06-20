@@ -27,13 +27,15 @@
     SESSION_CAP: 50, // max actions in one "Unfollow all" run
     DAILY_CAP: 150, // max actions per calendar day (persisted in storage)
 
-    // Page size used when paginating the followers/following lists. Larger
-    // pages = fewer round-trips = the non-follower list loads faster. Instagram
-    // may cap/ignore very large counts, so we still follow next_max_id.
-    PAGE_COUNT: 200,
-    // Small pause between list pages. These are read-only endpoints (far less
-    // sensitive than writes), so a short delay keeps loading snappy.
-    PAGE_DELAY_MS: 150,
+    // Page size requested when paginating the followers/following lists.
+    // Instagram caps the real page size server-side regardless (~100-ish) and
+    // we always follow next_max_id, so asking for ~100 matches reality and
+    // avoids edge-case 400s some accounts return on very large counts.
+    PAGE_COUNT: 100,
+    // Pause between list pages. These are read-only endpoints (far less
+    // sensitive than writes), so we keep this at 0 for the fastest scan; bump
+    // it up only if Instagram starts throttling the list reads.
+    PAGE_DELAY_MS: 0,
 
     // Feature 3: enlarge Instagram's own Followers/Following modals so there's
     // room for both the native list and our injected subsection. Set to false
