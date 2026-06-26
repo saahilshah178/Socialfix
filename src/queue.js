@@ -9,11 +9,13 @@
   const cfg = BWI.config;
   const api = BWI.api;
 
-  const todayKey = () => "bwi_daily_" + new Date().toISOString().slice(0, 10);
+  const DEFAULT_DAILY_KEY = "bwi_daily_";
+  const todayKey = (prefix = DEFAULT_DAILY_KEY) =>
+    prefix + new Date().toISOString().slice(0, 10);
 
-  async function getDailyCount() {
+  async function getDailyCount(prefix = DEFAULT_DAILY_KEY) {
     try {
-      const key = todayKey();
+      const key = todayKey(prefix);
       const res = await chrome.storage.local.get(key);
       return (res && res[key]) || 0;
     } catch (_) {
@@ -21,10 +23,10 @@
     }
   }
 
-  async function bumpDailyCount(n = 1) {
+  async function bumpDailyCount(prefix = DEFAULT_DAILY_KEY, n = 1) {
     try {
-      const key = todayKey();
-      const current = await getDailyCount();
+      const key = todayKey(prefix);
+      const current = await getDailyCount(prefix);
       await chrome.storage.local.set({ [key]: current + n });
     } catch (_) {}
   }
@@ -71,18 +73,28 @@
       this.stopRequested = true;
     },
 
-    // items: [{ pk, username }], action: "unfollow" | "removeFollower"
-    async run(items, action = "unfollow") {
+    // items: [{ pk, ... }], action: a method name on BWI.api ("unfollow" |
+    // "removeFollower" | "unsave"). opts overrides the throttle/caps so each
+    // action can have its own delays, limits, and daily budget; unset fields
+    // fall back to the conservative unfollow defaults in config.js.
+    async run(items, action = "unfollow", opts = {}) {
       if (this.running) return;
       this.running = true;
       this.stopRequested = false;
 
+      const minDelay = opts.minDelay != null ? opts.minDelay : cfg.MIN_DELAY_MS;
+      const maxDelay = opts.maxDelay != null ? opts.maxDelay : cfg.MAX_DELAY_MS;
+      const sessionCap =
+        opts.sessionCap != null ? opts.sessionCap : cfg.SESSION_CAP;
+      const dailyCap = opts.dailyCap != null ? opts.dailyCap : cfg.DAILY_CAP;
+      const dailyKey = opts.dailyKey || DEFAULT_DAILY_KEY;
+
       const total = items.length;
       let done = 0;
       let failed = 0;
-      const dailyStart = await getDailyCount();
-      const dailyRemaining = Math.max(0, cfg.DAILY_CAP - dailyStart);
-      const cap = Math.min(items.length, cfg.SESSION_CAP, dailyRemaining);
+      const dailyStart = await getDailyCount(dailyKey);
+      const dailyRemaining = Math.max(0, dailyCap - dailyStart);
+      const cap = Math.min(items.length, sessionCap, dailyRemaining);
 
       this.emit({ phase: "start", total, cap, done, failed });
 
@@ -117,7 +129,7 @@
         try {
           await api[action](item.pk);
           done++;
-          await bumpDailyCount(1);
+          await bumpDailyCount(dailyKey, 1);
           this.emit({
             phase: "done-one",
             current: item,
@@ -153,7 +165,7 @@
 
         // Jittered delay before the next action (skip after the last one).
         if (i < cap - 1 && !this.stopRequested) {
-          await api.sleep(rand(cfg.MIN_DELAY_MS, cfg.MAX_DELAY_MS));
+          await api.sleep(rand(minDelay, maxDelay));
         }
       }
 

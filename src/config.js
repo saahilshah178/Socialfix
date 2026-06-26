@@ -44,6 +44,17 @@
     MODAL_WIDTH_PX: 680, // target width of the enlarged modal card
     MODAL_HEIGHT_VH: 85, // target height as a percentage of viewport height
 
+    // Bulk "Unsave" throttling. Unsaving is lower-risk than unfollowing, so the
+    // delays are shorter and the caps higher. It still rides the shared queue.js
+    // and uses its OWN daily budget (separate from unfollow) via DAILY_KEY.
+    UNSAVE: {
+      MIN_DELAY_MS: 3000, // 3s
+      MAX_DELAY_MS: 6000, // 6s
+      SESSION_CAP: 100, // max unsaves in one run
+      DAILY_CAP: 300, // max unsaves per calendar day
+      DAILY_KEY: "bwi_daily_unsave_",
+    },
+
     // Button label text we match on. Instagram's CSS classes are obfuscated
     // and change constantly, but the visible English text is stable. To
     // support another language, swap these for that locale's labels.
@@ -53,6 +64,9 @@
       unfollow: "Unfollow",
       remove: "Remove",
       cancel: "Cancel",
+      select: "Select",
+      cancelSelect: "Cancel",
+      unsave: "Unsave",
     },
   };
 })();

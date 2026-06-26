@@ -187,6 +187,66 @@
   flex: 0 0 auto;
 }
 
+/* Bulk unsave — Saved page toolbar + tile selection */
+.bwi-saved-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 4px 12px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.bwi-saved-progress {
+  flex: 1 1 auto;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+/* In select mode tiles get a pointer cursor and become selectable. */
+.bwi-selecting .bwi-tile {
+  cursor: pointer;
+}
+
+.bwi-tile {
+  position: relative;
+}
+
+.bwi-tile--selected::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 3px solid #0095f6;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.bwi-tile-check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #0095f6;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 22px;
+  text-align: center;
+  z-index: 2;
+  pointer-events: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.bwi-tile--done {
+  opacity: 0.4;
+}
+
+.bwi-tile--done .bwi-tile-check {
+  background: #737373;
+}
+
 /* Toasts */
 #bwi-toast-host {
   position: fixed;

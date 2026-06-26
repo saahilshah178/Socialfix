@@ -160,6 +160,36 @@
   const unfollow = (pk) => postFriendship("destroy", pk);
   const removeFollower = (pk) => postFriendship("remove_follower", pk);
 
+  // Instagram media shortcodes (the /p/<code>/ slug) are the media's numeric pk
+  // base64-encoded with this alphabet. Decoding locally avoids an extra network
+  // round-trip just to turn a saved-grid tile into the id /unsave/ needs.
+  const SHORTCODE_ALPHABET =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
+  function shortcodeToMediaId(shortcode) {
+    if (!shortcode) return null;
+    let id = 0n;
+    for (const ch of shortcode) {
+      const idx = SHORTCODE_ALPHABET.indexOf(ch);
+      if (idx === -1) return null; // unexpected char — bail rather than guess
+      id = id * 64n + BigInt(idx);
+    }
+    return id.toString();
+  }
+
+  // Fully remove a post from Saved (across all collections).
+  async function unsave(mediaId) {
+    if (cfg.DRY_RUN) {
+      console.log(`[BWI][DRY_RUN] unsave ${mediaId} (not sent)`);
+      return { dry_run: true, status: "ok" };
+    }
+    return igFetch(`/api/v1/media/${mediaId}/unsave/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "",
+    });
+  }
+
   BWI.api = {
     getCookie,
     getOwnUserId,
@@ -169,6 +199,8 @@
     fetchAllFollowers,
     unfollow,
     removeFollower,
+    shortcodeToMediaId,
+    unsave,
     sleep,
     IgApiError,
   };
