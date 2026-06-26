@@ -11,6 +11,18 @@ A personal Chrome extension (Manifest V3) that makes follow-management on
    Following list and a panel appears at the top showing everyone you follow who
    doesn't follow you back. Each has an instant **Unfollow** button, plus an
    **Unfollow all** button.
+3. **Bigger Followers/Following modals** — the list modals are widened and
+   heightened so the native list and the non-follower subsection both fit
+   comfortably. Toggle with `BIGGER_MODALS` in `src/config.js`.
+4. **Bulk unsave on the Saved page** — on your own Saved page, click **Select**
+   to enter an inline multi-select mode over the post grid, tap the tiles you
+   want, then **Unsave (n)** to remove them all through the throttled queue.
+5. **Keyboard story navigation** — while viewing a story, press **H** to jump to
+   the **previous** user's story and **L** to jump to the **next** user's story.
+   Unlike the arrow keys (which step one frame at a time), `H`/`L` skip any
+   remaining frames of the current person and move a whole user at once. The keys
+   are ignored while you're typing (e.g. in the story reply box). Toggle with
+   `STORY_NAV` in `src/config.js`.
 
 ## Install (load unpacked)
 

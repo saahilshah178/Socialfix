@@ -16,6 +16,9 @@ Instagram is the initial platform. The extension's architecture will expand to s
 |---|---|
 | Shift-click instant unfollow/remove | Shipped |
 | "Doesn't follow you back" subsection + bulk unfollow | Shipped |
+| Bigger Followers/Following modals | Shipped |
+| Bulk unsave on the Saved page | Shipped |
+| Keyboard story navigation (H / L between users) | Shipped |
 | Bulk unlike | Shipped |
 
 ---
@@ -112,17 +115,17 @@ Instagram is the initial platform. The extension's architecture will expand to s
 
 ---
 
-#### 7. J/K Keyboard Shortcuts for Story Navigation
+#### 7. Keyboard Shortcuts for Story Navigation — ✅ Shipped (Feature 5)
 
 **Problem:** Instagram web has no keyboard shortcuts for navigating stories. Users have to click left/right arrows or use mouse gestures.
 
-**Solution:** Bind `J` (next story) and `K` (previous story) globally when a story viewer is open — same model as Gmail, Vim, etc.
+**Solution:** Bind `H` (previous user's story) and `L` (next user's story) when a story viewer is open. **The originally-proposed `J`/`K` were intentionally changed to `H`/`L`** so the keys map to the *horizontal* (left/right) spatial direction of story navigation rather than the vertical Gmail/Vim model. Unlike the arrow keys, which step one frame at a time, `H`/`L` skip any remaining frames of the current person and move a whole user. Implemented in `src/feature5.js` (pure DOM — clicks Instagram's own neighbor-story controls, no API).
 
 **Acceptance criteria:**
-- `J` advances to the next story (same behavior as clicking the right arrow / tapping right)
-- `K` goes back to the previous story
-- Keys are no-ops when no story viewer is active
-- Keys do not fire when focus is in a text input
+- `L` advances to the next user's story; `H` goes back to the previous user's story
+- Keys are active only on `/stories/...` paths (no-op elsewhere)
+- Keys do not fire when focus is in a text input or with a modifier held
+- Toggleable via `STORY_NAV` in `src/config.js`
 
 ---
 

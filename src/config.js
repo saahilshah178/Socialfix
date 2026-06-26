@@ -44,6 +44,14 @@
     MODAL_WIDTH_PX: 680, // target width of the enlarged modal card
     MODAL_HEIGHT_VH: 85, // target height as a percentage of viewport height
 
+    // Feature 5: keyboard story navigation. While viewing a story, H jumps to
+    // the PREVIOUS user's story and L jumps to the NEXT user's story (skipping
+    // any remaining frames of the current person — unlike the arrow keys, which
+    // step one frame at a time). Pure DOM, no API. Set to false to disable.
+    STORY_NAV: true,
+    STORY_NAV_PATH_PREFIX: "/stories/", // only active when pathname starts here
+    STORY_NAV_KEYS: { prev: "h", next: "l" }, // matched against e.key (lowercased)
+
     // Bulk "Unsave" throttling. Unsaving is lower-risk than unfollowing, so the
     // delays are shorter and the caps higher. It still rides the shared queue.js
     // and uses its OWN daily budget (separate from unfollow) via DAILY_KEY.
@@ -67,6 +75,10 @@
       select: "Select",
       cancelSelect: "Cancel",
       unsave: "Unsave",
+      // Feature 5 fallback: the aria-label on Instagram's round story chevrons,
+      // used only if the URL-shape lookup for adjacent users finds nothing.
+      storyPrev: "Previous",
+      storyNext: "Next",
     },
   };
 })();
