@@ -16,6 +16,7 @@ Instagram is the initial platform. The extension's architecture will expand to s
 |---|---|
 | Shift-click instant unfollow/remove | Shipped |
 | "Doesn't follow you back" subsection + bulk unfollow | Shipped |
+| Bulk unlike | Shipped |
 
 ---
 
@@ -50,22 +51,7 @@ Instagram is the initial platform. The extension's architecture will expand to s
 
 ---
 
-#### 3. Bulk Unlike
-
-**Problem:** Unliking posts one-by-one is the only option. Users who want to unlike hundreds of posts have no efficient path.
-
-**Solution:** A "Bulk Unlike" panel (accessible from the extension popup or injected toolbar) that fetches the user's liked-posts feed via the private API, displays posts with checkboxes (or a select-all), and queues unlikes through the existing `queue.js` throttle system.
-
-**Acceptance criteria:**
-- Fetches liked posts with pagination
-- Per-item and select-all controls
-- All unlikes go through queue.js (respects daily caps + randomized delays)
-- Dry-run mode logs instead of firing
-- Progress shown in popup and inline panel
-
----
-
-#### 4. Bulk Delete from Saved
+#### 3. Bulk Delete from Saved
 
 **Problem:** Instagram has no multi-select for removing saved posts. Unsaving a large collection requires visiting each post individually.
 
@@ -79,7 +65,7 @@ Instagram is the initial platform. The extension's architecture will expand to s
 
 ---
 
-#### 5. Repost People's Stories
+#### 4. Repost People's Stories
 
 **Problem:** Instagram removed native story resharing for posts you aren't tagged in.
 
@@ -93,7 +79,7 @@ Instagram is the initial platform. The extension's architecture will expand to s
 
 ---
 
-#### 6. Story Creation Tools
+#### 5. Story Creation Tools
 
 **Problem:** The web story creator is minimal compared to mobile — no text stickers, no drawing tools, limited media options.
 
@@ -113,7 +99,7 @@ Instagram is the initial platform. The extension's architecture will expand to s
 
 ---
 
-#### 7. Reorder Images When Creating a Post
+#### 6. Reorder Images When Creating a Post
 
 **Problem:** After selecting multiple images for a carousel post, Instagram web gives no way to reorder them — the only option is to deselect and restart.
 
@@ -126,7 +112,7 @@ Instagram is the initial platform. The extension's architecture will expand to s
 
 ---
 
-#### 8. J/K Keyboard Shortcuts for Story Navigation
+#### 7. J/K Keyboard Shortcuts for Story Navigation
 
 **Problem:** Instagram web has no keyboard shortcuts for navigating stories. Users have to click left/right arrows or use mouse gestures.
 
@@ -140,7 +126,7 @@ Instagram is the initial platform. The extension's architecture will expand to s
 
 ---
 
-#### 9. Emoji Pong
+#### 8. Emoji Pong
 
 **Problem:** Sometimes you just need to play Pong with emojis on Instagram.
 
