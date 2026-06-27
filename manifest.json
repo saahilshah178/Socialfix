@@ -18,7 +18,8 @@
         "src/feature2.js",
         "src/feature3.js",
         "src/feature4.js",
-        "src/feature5.js"
+        "src/feature5.js",
+        "src/feature6.js"
       ],
       "css": ["styles.css"]
     }

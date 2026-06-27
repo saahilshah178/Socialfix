@@ -160,6 +160,58 @@
   const unfollow = (pk) => postFriendship("destroy", pk);
   const removeFollower = (pk) => postFriendship("remove_follower", pk);
 
+  // ---- Bio links (Feature 6) ----------------------------------------------
+  // Read the logged-in user's current bio links from the same /users/<id>/info/
+  // response getOwnUsername already uses. Returns a normalized, ordered array of
+  // { url, title, link_id } so the editor can pre-fill itself.
+  async function getBioLinks() {
+    const ownId = getOwnUserId();
+    if (!ownId) return [];
+    const data = await igFetch(`/api/v1/users/${ownId}/info/`);
+    const raw = (data && data.user && data.user.bio_links) || [];
+    return raw.map((l) => ({
+      url: l.url || l.lynx_url || "",
+      title: l.title || "",
+      link_id: l.link_id != null ? String(l.link_id) : null,
+    }));
+  }
+
+  // The multi-link bio manager is a mobile-only feature — the web client never
+  // issues this request, so the path + body encoding below are the best-known
+  // shape and should be CONFIRMED against a real captured request before relying
+  // on them. Run with DRY_RUN:true first (the full payload is logged); if
+  // Instagram rejects the live call, THIS is the one place to adjust the path
+  // and how the link list is encoded.
+  const EDIT_BIO_LINKS_PATH = "/api/v1/accounts/edit_bio_links/";
+
+  function bioLinksBody(links) {
+    // Send the full ordered list; Instagram replaces the existing set with it.
+    const payload = (links || [])
+      .map((l) => ({ url: (l.url || "").trim(), title: (l.title || "").trim() }))
+      .filter((l) => l.url);
+    return new URLSearchParams({ bio_links: JSON.stringify(payload) }).toString();
+  }
+
+  // Replace the account's bio links with `links` (array of { url, title }).
+  // Mirrors the postFriendship/unsave write pattern: DRY_RUN guard, then a
+  // same-origin credentialed POST through igFetch. Unlike those, the body is
+  // non-empty. Lets IgApiError propagate so the UI can surface 400/429.
+  async function setBioLinks(links) {
+    const body = bioLinksBody(links);
+    if (cfg.DRY_RUN) {
+      console.log(
+        `[BWI][DRY_RUN] setBioLinks -> POST ${EDIT_BIO_LINKS_PATH}`,
+        body
+      );
+      return { dry_run: true, status: "ok" };
+    }
+    return igFetch(EDIT_BIO_LINKS_PATH, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    });
+  }
+
   // Instagram media shortcodes (the /p/<code>/ slug) are the media's numeric pk
   // base64-encoded with this alphabet. Decoding locally avoids an extra network
   // round-trip just to turn a saved-grid tile into the id /unsave/ needs.
@@ -199,6 +251,8 @@
     fetchAllFollowers,
     unfollow,
     removeFollower,
+    getBioLinks,
+    setBioLinks,
     shortcodeToMediaId,
     unsave,
     sleep,

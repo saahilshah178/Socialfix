@@ -63,6 +63,14 @@
       DAILY_KEY: "bwi_daily_unsave_",
     },
 
+    // Feature 6: edit your bio's multi-link manager (up to 5 links, each with
+    // an optional title) from the desktop web Edit Profile page — Instagram only
+    // exposes this on mobile. Injects a non-destructive bwi- panel into
+    // /accounts/edit/ and saves via the private API. A single low-frequency
+    // write, so it does NOT use queue.js; DRY_RUN is the only safety knob.
+    EDIT_BIO_LINKS: true,
+    MAX_BIO_LINKS: 5, // Instagram caps bio links at 5.
+
     // Button label text we match on. Instagram's CSS classes are obfuscated
     // and change constantly, but the visible English text is stable. To
     // support another language, swap these for that locale's labels.
@@ -79,6 +87,10 @@
       // used only if the URL-shape lookup for adjacent users finds nothing.
       storyPrev: "Previous",
       storyNext: "Next",
+      // Feature 6: the save button on the web Edit Profile page, used only to
+      // locate the edit form so the bio-links panel anchors near it. Falls back
+      // to <main> if not found.
+      editProfileSubmit: "Submit",
     },
   };
 })();

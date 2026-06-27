@@ -20,6 +20,7 @@ Instagram is the initial platform. The extension's architecture will expand to s
 | Bulk unsave on the Saved page | Shipped |
 | Keyboard story navigation (H / L between users) | Shipped |
 | Bulk unlike | Shipped |
+| Edit bio links (multi-link manager) on web | Shipped |
 
 ---
 
@@ -27,16 +28,18 @@ Instagram is the initial platform. The extension's architecture will expand to s
 
 ---
 
-#### 1. Edit Links in Bio
+#### 1. Edit Links in Bio — ✅ Shipped (Feature 6)
 
-**Problem:** Instagram limits link-in-bio editing to the mobile app. The web profile editor either omits the field entirely or hides it behind friction.
+**Problem:** Instagram limits the multi-link bio manager (up to 5 links, each with an optional title) to the mobile app. The desktop web profile editor doesn't expose it.
 
-**Solution:** Inject a fully editable link field (or multi-link manager) into the web profile edit page. On save, submit the update via the private API the same way ig-api.js handles social graph calls.
+**Solution:** Inject a non-destructive `bwi-` multi-link manager into `/accounts/edit/` (`src/feature6.js`). It pre-fills from the account's current `bio_links` (read via `api.getBioLinks`, off the same `/users/<id>/info/` response) and lets the user add / edit / remove / reorder links, then saves through `api.setBioLinks` — a single private-API write, so it does **not** use queue.js. Two-click inline confirm; `DRY_RUN` logs the payload instead of sending.
 
 **Acceptance criteria:**
-- User can add, edit, and remove bio links from the desktop web editor
-- Changes persist to the account (or dry-run logs the payload when `DRY_RUN: true`)
-- Field is injected non-destructively; Instagram's own editor still works normally
+- ✅ User can add, edit, remove, and reorder bio links from the desktop web editor
+- ✅ Changes persist to the account (or dry-run logs the payload when `DRY_RUN: true`)
+- ✅ Panel is injected non-destructively; Instagram's own editor still works normally
+
+> **Endpoint note:** the multi-link write endpoint isn't issued by the web client normally, so the path + body in `ig-api.js` (`EDIT_BIO_LINKS_PATH`) are the best-known shape and should be confirmed against a real captured request — verify under `DRY_RUN: true` first.
 
 ---
 

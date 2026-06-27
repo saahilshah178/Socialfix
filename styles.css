@@ -181,6 +181,11 @@
   color: inherit;
 }
 
+.bwi-btn--primary {
+  background: #0095f6;
+  color: #fff;
+}
+
 .bwi-btn--row {
   background: rgba(168, 168, 168, 0.18);
   color: inherit;
@@ -245,6 +250,102 @@
 
 .bwi-tile--done .bwi-tile-check {
   background: #737373;
+}
+
+/* Feature 6 — bio-links editor panel (injected into /accounts/edit/) */
+.bwi-biolinks {
+  border: 1px solid rgba(168, 168, 168, 0.3) !important;
+  border-radius: 12px !important;
+  margin: 16px 0 !important;
+}
+
+.bwi-biolinks__hint {
+  margin-top: 4px;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.bwi-biolinks__list {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bwi-biolinks__empty {
+  font-size: 13px;
+  opacity: 0.7;
+  padding: 4px 0;
+}
+
+.bwi-biolinks__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bwi-biolinks__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.bwi-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(168, 168, 168, 0.4);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  background: rgba(168, 168, 168, 0.08);
+  color: inherit;
+  font-family: inherit;
+}
+
+.bwi-input:focus {
+  outline: none;
+  border-color: #0095f6;
+}
+
+.bwi-biolinks__controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.bwi-iconbtn {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(168, 168, 168, 0.18);
+  color: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.bwi-iconbtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.bwi-biolinks__del {
+  color: #ed4956;
+}
+
+.bwi-biolinks__actions {
+  margin-top: 14px;
+  align-items: center;
+}
+
+.bwi-biolinks__status {
+  flex: 1 1 auto;
+  font-size: 12px;
+  opacity: 0.75;
 }
 
 /* Toasts */

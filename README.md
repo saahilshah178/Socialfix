@@ -23,6 +23,11 @@ A personal Chrome extension (Manifest V3) that makes follow-management on
    remaining frames of the current person and move a whole user at once. The keys
    are ignored while you're typing (e.g. in the story reply box). Toggle with
    `STORY_NAV` in `src/config.js`.
+6. **Edit bio links on web** — open **Edit profile** (`/accounts/edit/`) and a
+   **Bio links** panel appears at the top. Add, edit, reorder, or remove the
+   links shown in your bio (up to 5, each with an optional title) — the
+   multi-link manager Instagram normally only offers on mobile — then click
+   **Save links**. Toggle with `EDIT_BIO_LINKS` in `src/config.js`.
 
 ## Install (load unpacked)
 
