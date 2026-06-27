@@ -20,7 +20,11 @@
   if (!cfg.EDIT_BIO_LINKS) return;
 
   // State lives at module scope so it survives React replacing our panel node.
-  let links = []; // [{ url, title, link_id }]
+  let links = []; // [{ url, title, link_id, link_type }]
+  // Link ids present at last load — used to detect which the user removed so we
+  // can send them to remove_bio_links (update_bio_links alone may not delete
+  // omitted links).
+  let originalLinkIds = [];
   let loaded = false;
   let loading = false;
   let loadError = false;
@@ -115,6 +119,7 @@
       .getBioLinks()
       .then((arr) => {
         links = arr || [];
+        originalLinkIds = links.map((l) => l.link_id).filter(Boolean);
         loaded = true;
         loading = false;
         render();
@@ -295,9 +300,18 @@
         invalid++;
         continue;
       }
-      cleaned.push({ url, title: (l.title || "").trim(), link_id: l.link_id || null });
+      cleaned.push({
+        url,
+        title: (l.title || "").trim(),
+        link_id: l.link_id || null,
+        link_type: l.link_type || "external",
+      });
     }
     if (invalid) ui.toast(`Skipped ${invalid} link(s) that don't look like URLs`);
+
+    // Links that were loaded but are no longer in the saved set = removed.
+    const keptIds = cleaned.map((l) => l.link_id).filter(Boolean);
+    const removedIds = originalLinkIds.filter((id) => !keptIds.includes(id));
 
     // Two-click inline confirm (never window.confirm — it blocks the page).
     if (!confirmPending) {
@@ -316,18 +330,20 @@
     saving = true;
     render();
     api
-      .setBioLinks(cleaned)
+      .setBioLinks(cleaned, removedIds)
       .then(() => {
-        // Reflect the saved set back into our state (normalized URLs, blanks
-        // dropped) so the panel matches what's now live.
-        links = cleaned.map((l) => ({ ...l }));
         saving = false;
-        render();
         ui.toast(
           cfg.DRY_RUN
             ? "DRY_RUN — links not actually changed"
             : "Bio links saved"
         );
+        // Re-fetch from the server so the panel reflects the saved truth —
+        // new link_ids for added links, refreshed originalLinkIds — so a
+        // second edit/remove in the same session works. (Under DRY_RUN this
+        // just reloads the unchanged list.)
+        loaded = false;
+        loadLinks();
       })
       .catch((err) => {
         saving = false;
@@ -358,6 +374,7 @@
     panel = null;
     els = null;
     links = [];
+    originalLinkIds = [];
     loaded = false;
     loading = false;
     loadError = false;

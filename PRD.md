@@ -39,7 +39,7 @@ Instagram is the initial platform. The extension's architecture will expand to s
 - ✅ Changes persist to the account (or dry-run logs the payload when `DRY_RUN: true`)
 - ✅ Panel is injected non-destructively; Instagram's own editor still works normally
 
-> **Endpoint note:** the multi-link write endpoint isn't issued by the web client normally, so the path + body in `ig-api.js` (`EDIT_BIO_LINKS_PATH`) are the best-known shape and should be confirmed against a real captured request — verify under `DRY_RUN: true` first.
+> **Endpoint note:** the web "Links" field is greyed out (mobile-only gate), but the gate is client-side. We call the real app endpoints same-origin: `POST /api/v1/accounts/update_bio_links/` (add/edit/reorder) and `POST /api/v1/accounts/remove_bio_links/` (delete by `link_id`), using Instagram's `signed_body=SIGNATURE.<urlencoded JSON>` form encoding. Confirmed from instagrapi's source; since that emulates the mobile client, the web-specific acceptance of `_uuid`/`link_id`/`signed_body` is verified empirically (`DRY_RUN: true` logs the payload; then one live save). All of this is isolated in `ig-api.js`.
 
 ---
 

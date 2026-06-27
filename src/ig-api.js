@@ -161,9 +161,25 @@
   const removeFollower = (pk) => postFriendship("remove_follower", pk);
 
   // ---- Bio links (Feature 6) ----------------------------------------------
+  // The multi-link bio manager (up to 5 links, each with a title) is gated to
+  // the mobile app — the web "Links" field is greyed out — but the gate is
+  // purely client-side. These are the real endpoints the app uses (confirmed
+  // from instagrapi's current mixins/account.py); we call them same-origin from
+  // the content script, which bypasses the web UI gate:
+  //   POST /api/v1/accounts/update_bio_links/  — add / edit / reorder (full set)
+  //   POST /api/v1/accounts/remove_bio_links/  — delete by link_id
+  // Bodies use Instagram's signed_body=SIGNATURE.<urlencoded JSON> form encoding.
+  // The "SIGNATURE." prefix is a constant — Instagram no longer verifies the
+  // signature, so no real HMAC is needed. NOTE: instagrapi emulates the MOBILE
+  // client, so the web-specific acceptance of _uuid / link_id / signed_body is
+  // verified empirically (run DRY_RUN:true first — the full payload is logged).
+  // If a live call is rejected, the obj shape + bioSignedBody here are the one
+  // place to adjust.
+
   // Read the logged-in user's current bio links from the same /users/<id>/info/
   // response getOwnUsername already uses. Returns a normalized, ordered array of
-  // { url, title, link_id } so the editor can pre-fill itself.
+  // { url, title, link_id, link_type } so the editor can pre-fill itself and so
+  // edits/removals can reference each link by its id.
   async function getBioLinks() {
     const ownId = getOwnUserId();
     if (!ownId) return [];
@@ -173,43 +189,95 @@
       url: l.url || l.lynx_url || "",
       title: l.title || "",
       link_id: l.link_id != null ? String(l.link_id) : null,
+      link_type: l.link_type || "external",
     }));
   }
 
-  // The multi-link bio manager is a mobile-only feature — the web client never
-  // issues this request, so the path + body encoding below are the best-known
-  // shape and should be CONFIRMED against a real captured request before relying
-  // on them. Run with DRY_RUN:true first (the full payload is logged); if
-  // Instagram rejects the live call, THIS is the one place to adjust the path
-  // and how the link list is encoded.
-  const EDIT_BIO_LINKS_PATH = "/api/v1/accounts/edit_bio_links/";
-
-  function bioLinksBody(links) {
-    // Send the full ordered list; Instagram replaces the existing set with it.
-    const payload = (links || [])
-      .map((l) => ({ url: (l.url || "").trim(), title: (l.title || "").trim() }))
-      .filter((l) => l.url);
-    return new URLSearchParams({ bio_links: JSON.stringify(payload) }).toString();
+  // Encode an object as Instagram's signed form body. URLSearchParams handles
+  // the URL-encoding of the JSON value correctly.
+  function bioSignedBody(obj) {
+    return new URLSearchParams({
+      signed_body: "SIGNATURE." + JSON.stringify(obj),
+    }).toString();
   }
 
-  // Replace the account's bio links with `links` (array of { url, title }).
-  // Mirrors the postFriendship/unsave write pattern: DRY_RUN guard, then a
-  // same-origin credentialed POST through igFetch. Unlike those, the body is
-  // non-empty. Lets IgApiError propagate so the UI can surface 400/429.
-  async function setBioLinks(links) {
-    const body = bioLinksBody(links);
+  // update_bio_links / remove_bio_links expect a device _uuid. The web client
+  // has no native one, so we mint a stable UUID and persist it (same caching
+  // pattern as getOwnUsername's username cache).
+  async function getDeviceUuid() {
+    const key = "bwi_device_uuid";
+    try {
+      const cached = await chrome.storage.local.get(key);
+      if (cached && cached[key]) return cached[key];
+    } catch (_) {
+      /* storage may be unavailable in odd contexts; fall through */
+    }
+    const uuid =
+      (typeof crypto !== "undefined" && crypto.randomUUID && crypto.randomUUID()) ||
+      String(Date.now()) + "-" + Math.random().toString(16).slice(2);
+    try {
+      await chrome.storage.local.set({ [key]: uuid });
+    } catch (_) {}
+    return uuid;
+  }
+
+  // Add / edit / reorder: send the full ordered list. Array order = display
+  // order; existing links carry their link_id so they're edited in place rather
+  // than recreated. `updated_links` is a JSON string nested inside the outer
+  // JSON object (double-encoded), per Instagram's wire format.
+  async function updateBioLinks(links) {
+    const mapped = (links || [])
+      .map((l) => {
+        const o = {
+          url: (l.url || "").trim(),
+          title: (l.title || "").trim(),
+          link_type: l.link_type || "external",
+        };
+        if (l.link_id) o.link_id = String(l.link_id);
+        return o;
+      })
+      .filter((l) => l.url);
+    const obj = {
+      updated_links: JSON.stringify(mapped),
+      _uid: getOwnUserId(),
+      _uuid: await getDeviceUuid(),
+    };
     if (cfg.DRY_RUN) {
-      console.log(
-        `[BWI][DRY_RUN] setBioLinks -> POST ${EDIT_BIO_LINKS_PATH}`,
-        body
-      );
+      console.log("[BWI][DRY_RUN] update_bio_links (not sent)", obj);
       return { dry_run: true, status: "ok" };
     }
-    return igFetch(EDIT_BIO_LINKS_PATH, {
+    return igFetch("/api/v1/accounts/update_bio_links/", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body,
+      body: bioSignedBody(obj),
     });
+  }
+
+  // Delete bio links by id.
+  async function removeBioLinks(linkIds) {
+    if (!linkIds || !linkIds.length) return { skipped: true };
+    const obj = {
+      _uid: getOwnUserId(),
+      _uuid: await getDeviceUuid(),
+      link_ids: linkIds.map(String),
+    };
+    if (cfg.DRY_RUN) {
+      console.log("[BWI][DRY_RUN] remove_bio_links (not sent)", obj);
+      return { dry_run: true, status: "ok" };
+    }
+    return igFetch("/api/v1/accounts/remove_bio_links/", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: bioSignedBody(obj),
+    });
+  }
+
+  // Save the editor's state: first delete any links the user removed (by id),
+  // then push the full ordered list. Both writes are DRY_RUN-guarded inside
+  // their helpers; IgApiError propagates so the UI can show the status code.
+  async function setBioLinks(links, removedIds) {
+    if (removedIds && removedIds.length) await removeBioLinks(removedIds);
+    return updateBioLinks(links);
   }
 
   // Instagram media shortcodes (the /p/<code>/ slug) are the media's numeric pk
@@ -252,6 +320,8 @@
     unfollow,
     removeFollower,
     getBioLinks,
+    updateBioLinks,
+    removeBioLinks,
     setBioLinks,
     shortcodeToMediaId,
     unsave,
