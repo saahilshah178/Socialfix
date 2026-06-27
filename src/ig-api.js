@@ -241,6 +241,7 @@
       updated_links: JSON.stringify(mapped),
       _uid: getOwnUserId(),
       _uuid: await getDeviceUuid(),
+      _csrftoken: getCsrf(),
     };
     if (cfg.DRY_RUN) {
       console.log("[BWI][DRY_RUN] update_bio_links (not sent)", obj);
@@ -259,6 +260,7 @@
     const obj = {
       _uid: getOwnUserId(),
       _uuid: await getDeviceUuid(),
+      _csrftoken: getCsrf(),
       link_ids: linkIds.map(String),
     };
     if (cfg.DRY_RUN) {

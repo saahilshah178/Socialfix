@@ -20,7 +20,7 @@ Instagram is the initial platform. The extension's architecture will expand to s
 | Bulk unsave on the Saved page | Shipped |
 | Keyboard story navigation (H / L between users) | Shipped |
 | Bulk unlike | Shipped |
-| Edit bio links (multi-link manager) on web | Shipped |
+| Edit bio links (multi-link manager) on web | ⚠️ Nonfunctional — save fails (see below) |
 
 ---
 
@@ -28,18 +28,26 @@ Instagram is the initial platform. The extension's architecture will expand to s
 
 ---
 
-#### 1. Edit Links in Bio — ✅ Shipped (Feature 6)
+#### 1. Edit Links in Bio — ⚠️ Nonfunctional, MUST BE FIXED (Feature 6)
 
-**Problem:** Instagram limits the multi-link bio manager (up to 5 links, each with an optional title) to the mobile app. The desktop web profile editor doesn't expose it.
+**Problem:** Instagram limits the multi-link bio manager (up to 5 links, each with an optional title) to the mobile app. The desktop web profile editor doesn't expose it (the "Links" field is greyed out).
 
-**Solution:** Inject a non-destructive `bwi-` multi-link manager into `/accounts/edit/` (`src/feature6.js`). It pre-fills from the account's current `bio_links` (read via `api.getBioLinks`, off the same `/users/<id>/info/` response) and lets the user add / edit / remove / reorder links, then saves through `api.setBioLinks` — a single private-API write, so it does **not** use queue.js. Two-click inline confirm; `DRY_RUN` logs the payload instead of sending.
+**Current state:** The UI is built and works (`src/feature6.js`): the panel injects into `/accounts/edit/`, pre-fills from `api.getBioLinks` (off `/users/<id>/info/`), and supports add/edit/reorder/remove with a two-click confirm. **But the SAVE does not work** — it goes through `api.setBioLinks` → `update_bio_links` / `remove_bio_links` in `ig-api.js`.
 
-**Acceptance criteria:**
-- ✅ User can add, edit, remove, and reorder bio links from the desktop web editor
-- ✅ Changes persist to the account (or dry-run logs the payload when `DRY_RUN: true`)
+**🛑 KNOWN BUG — fix required:** Saving returns server errors and never persists:
+- First attempt used a **made-up endpoint** `/api/v1/accounts/edit_bio_links/` → **404** (endpoint doesn't exist).
+- Switched to instagrapi's real endpoints `POST /api/v1/accounts/update_bio_links/` and `remove_bio_links/` with `signed_body=SIGNATURE.<urlencoded JSON>` encoding (`updated_links` double-encoded, `_uid`/`_uuid`/`_csrftoken`) → now **500** (server rejects the payload).
+- The 500 means the endpoint is reached but the **body shape is still wrong for the web tier**. instagrapi emulates the *mobile* app, so a fabricated web `_uuid`, missing `device_id`, a different required `link_type`, or `link_ids`/`updated_links` encoding are the likely culprits.
+
+**How to actually fix it (next steps):**
+1. Read the **500 response body** — `igFetch` already captures it in `IgApiError.body`, logged by feature6's `console.warn("[BWI] setBioLinks failed", err)`. That JSON usually names the missing/invalid field.
+2. The authoritative fix is to **capture the real request** the Instagram **mobile app** sends when saving bio links (HTTPS proxy + TLS-unpinning — hard, but definitive) and mirror it exactly.
+3. All request shaping is isolated in `ig-api.js` (`updateBioLinks` / `removeBioLinks` / `bioSignedBody` / the `obj` payloads) — adjust there.
+
+**Acceptance criteria (NOT yet met):**
+- ⬜ Changes actually persist to the account (currently 500s)
+- ✅ User can add, edit, remove, and reorder links in the panel UI
 - ✅ Panel is injected non-destructively; Instagram's own editor still works normally
-
-> **Endpoint note:** the web "Links" field is greyed out (mobile-only gate), but the gate is client-side. We call the real app endpoints same-origin: `POST /api/v1/accounts/update_bio_links/` (add/edit/reorder) and `POST /api/v1/accounts/remove_bio_links/` (delete by `link_id`), using Instagram's `signed_body=SIGNATURE.<urlencoded JSON>` form encoding. Confirmed from instagrapi's source; since that emulates the mobile client, the web-specific acceptance of `_uuid`/`link_id`/`signed_body` is verified empirically (`DRY_RUN: true` logs the payload; then one live save). All of this is isolated in `ig-api.js`.
 
 ---
 
