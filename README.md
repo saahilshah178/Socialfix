@@ -33,8 +33,7 @@ A personal Chrome extension (Manifest V3) that makes follow-management on
 
 1. Go to `chrome://extensions`.
 2. Toggle **Developer mode** (top-right) on.
-3. Click **Load unpacked** and select this folder
-   (`InstaChromeExtension`).
+3. Click **Load unpacked** and select this folder (`Socialfix`).
 4. Open `https://www.instagram.com`, make sure you're logged in, and use the
    features above.
 
