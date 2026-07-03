@@ -15,9 +15,49 @@
   let ownUsername = null;
   let ownId = null;
 
-  // Cache the computed lists per open so DOM churn / refresh doesn't refetch
-  // needlessly. Cleared when no following dialog is on screen.
+  // In-memory cache of the computed list for the current session so DOM churn
+  // / refresh doesn't refetch needlessly. Cleared when no following dialog is
+  // on screen.
   let cache = null; // { nonFollowers: [...] }
+
+  // Persisted cache so REOPENING the modal is instant instead of re-scanning
+  // your whole graph every time (the slow part). Survives across page loads;
+  // invalidated by age (TTL) or an explicit Refresh.
+  const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+  const storageKey = () => "bwi_nonfollowers_" + ownId;
+
+  async function loadStoredNonFollowers() {
+    try {
+      const key = storageKey();
+      const res = await chrome.storage.local.get(key);
+      const entry = res && res[key];
+      if (
+        entry &&
+        Array.isArray(entry.nonFollowers) &&
+        entry.ts &&
+        Date.now() - entry.ts < CACHE_TTL_MS
+      ) {
+        return entry.nonFollowers;
+      }
+    } catch (_) {
+      /* storage may be unavailable; treat as a cache miss */
+    }
+    return null;
+  }
+
+  function saveStoredNonFollowers(nonFollowers) {
+    try {
+      chrome.storage.local.set({
+        [storageKey()]: { ts: Date.now(), nonFollowers },
+      });
+    } catch (_) {}
+  }
+
+  function clearStoredNonFollowers() {
+    try {
+      chrome.storage.local.remove(storageKey());
+    } catch (_) {}
+  }
 
   api
     .getOwnUsername()
@@ -77,24 +117,55 @@
     }
   }
 
-  async function computeNonFollowers(onProgress) {
-    if (cache) return cache.nonFollowers;
+  // Resolve the non-follower list. Streams each result to `onRow` as it's found
+  // (live or from cache) and reports paging progress to `onProgress`. `force`
+  // bypasses both caches for an explicit Refresh.
+  async function computeNonFollowers({ onProgress, onRow, force } = {}) {
+    if (!force && cache) {
+      cache.nonFollowers.forEach((u) => onRow && onRow(u));
+      return cache.nonFollowers;
+    }
+    if (!force) {
+      const stored = await loadStoredNonFollowers();
+      if (stored) {
+        cache = { nonFollowers: stored };
+        stored.forEach((u) => onRow && onRow(u));
+        return stored;
+      }
+    }
+
     let nFollowing = 0;
     let nFollowers = 0;
     const report = () => onProgress && onProgress(nFollowing, nFollowers);
-    const [following, followers] = await Promise.all([
-      api.fetchAllFollowing(ownId, (n) => {
+
+    // Fetch the full followers list first so we have the complete membership
+    // set, then page through following and emit each non-follower the moment
+    // it's seen — so rows appear progressively instead of after one long wait.
+    const followers = await api.fetchAllFollowers(ownId, (n) => {
+      nFollowers = n;
+      report();
+    });
+    const followerPks = new Set(followers.map((u) => u.pk));
+
+    const nonFollowers = [];
+    await api.fetchAllFollowing(
+      ownId,
+      (n) => {
         nFollowing = n;
         report();
-      }),
-      api.fetchAllFollowers(ownId, (n) => {
-        nFollowers = n;
-        report();
-      }),
-    ]);
-    const followerPks = new Set(followers.map((u) => u.pk));
-    const nonFollowers = following.filter((u) => !followerPks.has(u.pk));
+      },
+      (pageUsers) => {
+        for (const u of pageUsers) {
+          if (!followerPks.has(u.pk)) {
+            nonFollowers.push(u);
+            if (onRow) onRow(u);
+          }
+        }
+      }
+    );
+
     cache = { nonFollowers };
+    saveStoredNonFollowers(nonFollowers);
     return nonFollowers;
   }
 
@@ -169,6 +240,7 @@
       onStop: () => queue.stop(),
       onRefresh: () => {
         cache = null;
+        clearStoredNonFollowers();
         const old = dialog.querySelector('[data-bwi="subsection"]');
         dialog.dataset.bwiInjected = "";
         if (old) old.remove();
@@ -182,38 +254,38 @@
     dialog.dataset.bwiInjected = "loading";
 
     whenReady(dialog, async (container) => {
-      // Loading placeholder.
-      const loading = document.createElement("div");
-      loading.className = "bwi-section bwi-loading";
-      loading.setAttribute("data-bwi", "loading");
-      const loadingText = document.createElement("span");
-      loadingText.textContent = "Finding who doesn't follow you back…";
-      loading.appendChild(loadingText);
-      container.parentNode.insertBefore(loading, container);
-
-      let nonFollowers;
-      try {
-        nonFollowers = await computeNonFollowers((fwing, fwers) => {
-          loadingText.textContent = `Scanning your lists… ${fwing} following, ${fwers} followers`;
-        });
-      } catch (err) {
-        loading.classList.remove("bwi-loading");
-        loading.textContent =
-          "Couldn't load lists (Instagram API error). Try Refresh.";
-        console.warn("[BWI] computeNonFollowers failed", err);
-        dialog.dataset.bwiInjected = "error";
-        return;
-      }
-
-      const panel = ui.renderSubsection(nonFollowers, {
+      // Build the panel shell immediately (in its loading state) and insert it
+      // above the native list, so the user sees the section right away and
+      // rows stream in as the scan finds them — no blank multi-second wait.
+      let handlers;
+      const panel = ui.renderSubsection({
         onUnfollowOne: (u, row) => handlers.onUnfollowOne(u, row),
         onUnfollowAll: () => handlers.onUnfollowAll(),
         onStop: () => handlers.onStop(),
         onRefresh: () => handlers.onRefresh(),
       });
-      const handlers = wireHandlers(panel, nonFollowers, dialog);
+      container.parentNode.insertBefore(panel.root, container);
 
-      loading.replaceWith(panel.root);
+      let nonFollowers;
+      try {
+        nonFollowers = await computeNonFollowers({
+          onProgress: (fwing, fwers) => {
+            panel.setScanStatus(
+              `Scanning your lists… ${fwing} following, ${fwers} followers`
+            );
+          },
+          onRow: (u) => panel.addRow(u),
+        });
+      } catch (err) {
+        console.warn("[BWI] computeNonFollowers failed", err);
+        handlers = wireHandlers(panel, [], dialog);
+        panel.showError("Instagram API error. Tap Refresh to retry.");
+        dialog.dataset.bwiInjected = "error";
+        return;
+      }
+
+      handlers = wireHandlers(panel, nonFollowers, dialog);
+      panel.finish();
       dialog.dataset.bwiInjected = "done";
     });
   }

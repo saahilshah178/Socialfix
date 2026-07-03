@@ -15,19 +15,17 @@
   flex: 0 0 auto;
 }
 
-/* Loading placeholder with a spinner. */
-.bwi-loading {
-  display: flex;
+/* While the scan runs, show a small spinner next to the live status line. */
+.bwi-section--loading .bwi-progress {
+  display: flex !important;
   align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  opacity: 0.9;
+  gap: 8px;
 }
 
-.bwi-loading::before {
+.bwi-section--loading .bwi-progress::before {
   content: "";
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   flex: 0 0 auto;
   border-radius: 50%;
   border: 2px solid rgba(168, 168, 168, 0.4);

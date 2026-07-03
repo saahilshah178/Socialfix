@@ -96,10 +96,13 @@
     };
   }
 
-  // Paginate one of the friendship list endpoints to completion. `onProgress`
-  // (optional) is called with the running total after each page so the UI can
-  // show live load feedback.
-  async function fetchAllList(kind, userId, onProgress) {
+  // Paginate one of the friendship list endpoints to completion.
+  //   onProgress(total)   — optional; called with the running total after each
+  //                         page so the UI can show live load feedback.
+  //   onPage(pageUsers)   — optional; called with just that page's normalized
+  //                         users so the caller can stream results in as they
+  //                         arrive instead of waiting for the whole list.
+  async function fetchAllList(kind, userId, onProgress, onPage) {
     const out = [];
     let maxId = null;
     // Hard ceiling so a pathological response can't loop forever.
@@ -109,7 +112,9 @@
       const data = await igFetch(
         `/api/v1/friendships/${userId}/${kind}/?${params.toString()}`
       );
-      (data.users || []).forEach((u) => out.push(pickUser(u)));
+      const pageUsers = (data.users || []).map(pickUser);
+      pageUsers.forEach((u) => out.push(u));
+      if (onPage) onPage(pageUsers);
       if (onProgress) onProgress(out.length);
       maxId = data.next_max_id ? String(data.next_max_id) : null;
       if (!maxId) break;
@@ -118,10 +123,10 @@
     return out;
   }
 
-  const fetchAllFollowing = (userId, onProgress) =>
-    fetchAllList("following", userId, onProgress);
-  const fetchAllFollowers = (userId, onProgress) =>
-    fetchAllList("followers", userId, onProgress);
+  const fetchAllFollowing = (userId, onProgress, onPage) =>
+    fetchAllList("following", userId, onProgress, onPage);
+  const fetchAllFollowers = (userId, onProgress, onPage) =>
+    fetchAllList("followers", userId, onProgress, onPage);
 
   // Resolve and cache the logged-in user's own username (needed to confirm
   // a Following modal belongs to *your* profile).
