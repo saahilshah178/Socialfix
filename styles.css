@@ -250,44 +250,11 @@
   background: #737373;
 }
 
-/* Feature 6 — bio-links editor panel (injected into /accounts/edit/) */
-.bwi-biolinks {
-  border: 1px solid rgba(168, 168, 168, 0.3) !important;
-  border-radius: 12px !important;
-  margin: 16px 0 !important;
-}
-
-.bwi-biolinks__hint {
-  margin-top: 4px;
-  font-size: 12px;
-  opacity: 0.7;
-}
-
-.bwi-biolinks__list {
-  margin-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.bwi-biolinks__empty {
+/* Shared form controls (story composer + list subsections) */
+.bwi-section__empty {
   font-size: 13px;
   opacity: 0.7;
   padding: 4px 0;
-}
-
-.bwi-biolinks__row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.bwi-biolinks__fields {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex: 1 1 auto;
-  min-width: 0;
 }
 
 .bwi-input {
@@ -307,13 +274,6 @@
   border-color: #0095f6;
 }
 
-.bwi-biolinks__controls {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex: 0 0 auto;
-}
-
 .bwi-iconbtn {
   width: 28px;
   height: 28px;
@@ -331,19 +291,381 @@
   cursor: default;
 }
 
-.bwi-biolinks__del {
-  color: #ed4956;
+/* Feature 4 (collections) — dropdown + scope toggle in the Saved toolbar */
+.bwi-select {
+  border-radius: 8px;
+  border: 1px solid rgba(168, 168, 168, 0.4);
+  background: rgba(168, 168, 168, 0.12);
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 8px;
+  max-width: 40vw;
 }
 
-.bwi-biolinks__actions {
-  margin-top: 14px;
+.bwi-scope {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  opacity: 0.85;
+  cursor: pointer;
+  user-select: none;
+}
+
+.bwi-scope input {
+  accent-color: #0095f6;
+}
+
+/* Feature 8 (repost story) — floating button + preview modal */
+.bwi-repost-btn {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 2147483000;
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  background: #0095f6;
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.bwi-repost-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.bwi-repost-modal,
+.bwi-story-overlay,
+.bwi-reorder-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483001;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.bwi-repost-card {
+  background: #1a1a1a;
+  color: #fff;
+  border-radius: 14px;
+  padding: 14px;
+  max-width: 92vw;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   align-items: center;
 }
 
-.bwi-biolinks__status {
-  flex: 1 1 auto;
+.bwi-repost-img {
+  max-width: min(360px, 80vw);
+  max-height: 62vh;
+  border-radius: 10px;
+  object-fit: contain;
+  background: #000;
+}
+
+.bwi-repost-modes,
+.bwi-repost-actions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  justify-content: center;
+}
+
+.bwi-repost-mode--on {
+  outline: 2px solid #0095f6;
+}
+
+/* Feature 9 (story composer) — launcher + overlay */
+.bwi-story-launch {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  z-index: 2147482000;
+  border: 0;
+  border-radius: 999px;
+  padding: 9px 14px;
   font-size: 12px;
-  opacity: 0.75;
+  font-weight: 700;
+  cursor: pointer;
+  background: rgba(38, 38, 38, 0.9);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.bwi-story-overlay {
+  gap: 16px;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.bwi-story-stagewrap {
+  height: 88vh;
+  display: flex;
+  align-items: center;
+}
+
+.bwi-story-stage {
+  position: relative;
+  height: 88vh;
+  aspect-ratio: 9 / 16;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.bwi-story-base,
+.bwi-story-draw {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.bwi-story-draw {
+  pointer-events: none;
+}
+
+.bwi-story-drawing .bwi-story-draw {
+  pointer-events: auto;
+  cursor: crosshair;
+}
+
+.bwi-story-drawing .bwi-story-stickers {
+  pointer-events: none;
+}
+
+.bwi-story-stickers {
+  position: absolute;
+  inset: 0;
+}
+
+.bwi-story-widget {
+  position: absolute;
+  min-width: 60px;
+  padding: 6px;
+  border: 1px dashed rgba(255, 255, 255, 0.6);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bwi-story-drag {
+  cursor: move;
+  color: #fff;
+  font-size: 12px;
+  opacity: 0.8;
+  align-self: flex-start;
+  touch-action: none;
+}
+
+.bwi-story-wdel {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 0;
+  background: #ed4956;
+  color: #fff;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.bwi-story-text {
+  outline: none;
+  min-width: 40px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  white-space: pre-wrap;
+}
+
+.bwi-story-wcontrols {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.bwi-story-linklabel,
+.bwi-story-widget--poll input,
+.bwi-story-widget--link input {
+  font-size: 12px;
+}
+
+.bwi-story-widget--link,
+.bwi-story-widget--poll {
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  min-width: 160px;
+}
+
+.bwi-story-toolbar {
+  width: 320px;
+  max-width: 34vw;
+  max-height: 88vh;
+  overflow-y: auto;
+  background: #1a1a1a;
+  color: #fff;
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.bwi-story-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.bwi-story-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bwi-story-grouplabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.6;
+}
+
+.bwi-story-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.bwi-story-tool.bwi-story-on {
+  outline: 2px solid #0095f6;
+}
+
+.bwi-story-color {
+  width: 34px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.bwi-story-status {
+  font-size: 12px;
+  opacity: 0.8;
+  min-height: 16px;
+}
+
+.bwi-story-post {
+  flex: 1 1 auto;
+}
+
+/* Feature 10 (carousel reorder) — button + drag panel */
+.bwi-reorder-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2147483000;
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  background: #0095f6;
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.bwi-reorder-card {
+  background: #1a1a1a;
+  color: #fff;
+  border-radius: 14px;
+  padding: 18px;
+  max-width: 92vw;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bwi-reorder-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.bwi-reorder-hint {
+  font-size: 12px;
+  opacity: 0.7;
+  max-width: 520px;
+}
+
+.bwi-reorder-strip {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  max-width: 80vw;
+}
+
+.bwi-reorder-thumb {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: grab;
+  border: 2px solid transparent;
+}
+
+.bwi-reorder-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.bwi-reorder-thumb.bwi-reorder-dragging {
+  opacity: 0.4;
+  border-color: #0095f6;
+}
+
+.bwi-reorder-badge {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #0095f6;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.bwi-reorder-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 /* Toasts */

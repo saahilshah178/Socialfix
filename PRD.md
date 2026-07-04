@@ -19,8 +19,13 @@ Instagram is the initial platform. The extension's architecture will expand to s
 | Bigger Followers/Following modals | Shipped |
 | Bulk unsave on the Saved page | Shipped |
 | Keyboard story navigation (H / L between users) | Shipped |
-| Bulk unlike | Shipped |
-| Edit bio links (multi-link manager) on web | ⚠️ Nonfunctional — save fails (see below) |
+| Bulk unlike | Native IG feature (not built here — see CLAUDE.md) |
+| See who unfollowed you recently | Shipped |
+| Enhanced story composer (text + drawing + fit) | Shipped — write API, verify live under DRY_RUN |
+| Bulk unsave by collection | **Removed — impossible** (per-collection removal is mobile-app-only; web silently full-unsaves) |
+| Repost people's stories | **Removed — impossible** (web ships no story-create call; finalize endpoint is mobile-tier + flags web sessions) |
+| Reorder carousel images | **Removed — native** (Instagram web now reorders carousels itself) |
+| Story composer link/poll stickers | **Removed — impossible** (web configure endpoint silently drops them) |
 
 ---
 
@@ -28,30 +33,7 @@ Instagram is the initial platform. The extension's architecture will expand to s
 
 ---
 
-#### 1. Edit Links in Bio — ⚠️ Nonfunctional, MUST BE FIXED (Feature 6)
-
-**Problem:** Instagram limits the multi-link bio manager (up to 5 links, each with an optional title) to the mobile app. The desktop web profile editor doesn't expose it (the "Links" field is greyed out).
-
-**Current state:** The UI is built and works (`src/feature6.js`): the panel injects into `/accounts/edit/`, pre-fills from `api.getBioLinks` (off `/users/<id>/info/`), and supports add/edit/reorder/remove with a two-click confirm. **But the SAVE does not work** — it goes through `api.setBioLinks` → `update_bio_links` / `remove_bio_links` in `ig-api.js`.
-
-**🛑 KNOWN BUG — fix required:** Saving returns server errors and never persists:
-- First attempt used a **made-up endpoint** `/api/v1/accounts/edit_bio_links/` → **404** (endpoint doesn't exist).
-- Switched to instagrapi's real endpoints `POST /api/v1/accounts/update_bio_links/` and `remove_bio_links/` with `signed_body=SIGNATURE.<urlencoded JSON>` encoding (`updated_links` double-encoded, `_uid`/`_uuid`/`_csrftoken`) → now **500** (server rejects the payload).
-- The 500 means the endpoint is reached but the **body shape is still wrong for the web tier**. instagrapi emulates the *mobile* app, so a fabricated web `_uuid`, missing `device_id`, a different required `link_type`, or `link_ids`/`updated_links` encoding are the likely culprits.
-
-**How to actually fix it (next steps):**
-1. Read the **500 response body** — `igFetch` already captures it in `IgApiError.body`, logged by feature6's `console.warn("[BWI] setBioLinks failed", err)`. That JSON usually names the missing/invalid field.
-2. The authoritative fix is to **capture the real request** the Instagram **mobile app** sends when saving bio links (HTTPS proxy + TLS-unpinning — hard, but definitive) and mirror it exactly.
-3. All request shaping is isolated in `ig-api.js` (`updateBioLinks` / `removeBioLinks` / `bioSignedBody` / the `obj` payloads) — adjust there.
-
-**Acceptance criteria (NOT yet met):**
-- ⬜ Changes actually persist to the account (currently 500s)
-- ✅ User can add, edit, remove, and reorder links in the panel UI
-- ✅ Panel is injected non-destructively; Instagram's own editor still works normally
-
----
-
-#### 2. See Who Unfollowed You Recently
+#### 1. See Who Unfollowed You Recently — ✅ Shipped (Feature 7)
 
 **Problem:** Instagram provides no native way to see who has unfollowed you.
 
@@ -65,7 +47,9 @@ Instagram is the initial platform. The extension's architecture will expand to s
 
 ---
 
-#### 3. Bulk Delete from Saved
+#### 2. Bulk Delete from Saved — ✅ Shipped (Feature 4 extension)
+
+**Update (v1):** The inline Select → Unsave (full unsave) is shipped and stays. The attempted **collections** extension — a dropdown, Select-all, and a **Remove from this collection only** scope toggle (`removed_collection_ids`) — was **removed**: per-collection removal is a mobile-app-only action that the web endpoint silently ignores or turns into a full unsave (see `FEATURE_FEASIBILITY_REPORT.md` §2.5). Do not re-attempt scoped removal.
 
 **Problem:** Instagram has no multi-select for removing saved posts. Unsaving a large collection requires visiting each post individually.
 
@@ -79,11 +63,13 @@ Instagram is the initial platform. The extension's architecture will expand to s
 
 ---
 
-#### 4. Repost People's Stories
+#### 3. Repost People's Stories — 🚫 Removed — impossible on web
 
-**Problem:** Instagram removed native story resharing for posts you aren't tagged in.
+> **Removed (built, then cut).** There is no web story-*create* API call — the only story finalize endpoint is mobile-app-tier and rejects/flags cookie-authed web sessions (documented failure mode: the session gets checkpointed/logged out, not a clean 400). Reposting someone else's frame this way is not achievable from a content script. See `FEATURE_FEASIBILITY_REPORT.md` §2.3. Do not re-attempt.
 
-**Solution:** Add a "Repost to Story" action to story viewer controls. Captures the current story frame (respecting that this is for personal use on a load-unpacked extension), lets the user optionally add a caption sticker, and submits via the stories creation API.
+**Problem (original):** Instagram removed native story resharing for posts you aren't tagged in.
+
+**Solution (original):** Add a "Repost to Story" action to story viewer controls. Captures the current story frame (respecting that this is for personal use on a load-unpacked extension), lets the user optionally add a caption sticker, and submits via the stories creation API.
 
 **Acceptance criteria:**
 - Action visible on story viewer for any public/following account's story
@@ -93,7 +79,9 @@ Instagram is the initial platform. The extension's architecture will expand to s
 
 ---
 
-#### 5. Story Creation Tools
+#### 4. Story Creation Tools — ✅ Shipped (Feature 9), scope-reduced — verify live under DRY_RUN
+
+> **Scope cut:** Text, freehand drawing, and fit/fill ship (all rasterized into the JPEG — no sticker payload, genuinely feasible). The **interactive link/poll stickers were removed** — the plain web `configure_to_story` endpoint silently drops `tap_models`/`story_sticker_ids` (mobile-app-only), so they'd post an image with no sticker. See `FEATURE_FEASIBILITY_REPORT.md` §2.2.
 
 **Problem:** The web story creator is minimal compared to mobile — no text stickers, no drawing tools, limited media options.
 
@@ -113,7 +101,9 @@ Instagram is the initial platform. The extension's architecture will expand to s
 
 ---
 
-#### 6. Reorder Images When Creating a Post
+#### 5. Reorder Images When Creating a Post — 🚫 Removed — now native on web
+
+> **Removed (built, then cut).** Instagram web now provides native drag-to-reorder in the carousel composer, so the MAIN-world `configure_sidecar` interception was redundant and risky (client-side tampering with the publish request can flag the account). `feature10.js` + `mainworld.js` were deleted. See `FEATURE_FEASIBILITY_REPORT.md` §2.4.
 
 **Problem:** After selecting multiple images for a carousel post, Instagram web gives no way to reorder them — the only option is to deselect and restart.
 
@@ -126,7 +116,7 @@ Instagram is the initial platform. The extension's architecture will expand to s
 
 ---
 
-#### 7. Keyboard Shortcuts for Story Navigation — ✅ Shipped (Feature 5)
+#### 6. Keyboard Shortcuts for Story Navigation — ✅ Shipped (Feature 5)
 
 **Problem:** Instagram web has no keyboard shortcuts for navigating stories. Users have to click left/right arrows or use mouse gestures.
 
@@ -137,20 +127,6 @@ Instagram is the initial platform. The extension's architecture will expand to s
 - Keys are active only on `/stories/...` paths (no-op elsewhere)
 - Keys do not fire when focus is in a text input or with a modifier held
 - Toggleable via `STORY_NAV` in `src/config.js`
-
----
-
-#### 8. Emoji Pong
-
-**Problem:** Sometimes you just need to play Pong with emojis on Instagram.
-
-**Solution:** A hidden easter egg — a keyboard shortcut (e.g., `Shift+P` while on any IG page outside a story/composer) opens a fullscreen Pong overlay rendered in a `<canvas>`, where the ball is a randomly-selected emoji and paddles are `🫱`/`🫲`. Press `Escape` to close.
-
-**Acceptance criteria:**
-- Playable two-player or single-player (vs. a CPU paddle) Pong
-- Score tracked until someone reaches 7
-- Emoji ball changes each round
-- Closes cleanly on Escape; no state bleeds into the page
 
 ---
 
@@ -182,6 +158,23 @@ Platform modules will follow the same conventions as the Instagram implementatio
 - Mobile or Firefox support
 - Any feature that requires storing credentials or a backend server
 - Automating content creation (captions, images) — tools assist creation, not replace it
+- **Story reposting, per-collection unsave, and carousel reorder (removed).**
+  Proven not achievable / not needed from web (2026-07 feasibility research,
+  `FEATURE_FEASIBILITY_REPORT.md`): story-create is mobile-tier and flags web
+  sessions; per-collection removal is mobile-app-only (web silently full-
+  unsaves); carousel reorder is now native on web. Interactive link/poll story
+  stickers are likewise mobile-app-only (web drops them). Do not re-attempt any
+  of these — they are platform limits, not code bugs.
+- **Editing bio links from web (removed).** Instagram gates the multi-link bio
+  manager to the mobile app. The `update_bio_links` / `remove_bio_links`
+  endpoints are mobile app-tier and reject a cookie-authenticated web session
+  (intermittent 500 "Oops, an error occurred." with no persistence), so there is
+  no reliable web path. Feature 6 was built, proven unfixable, and removed.
+- **Emoji Pong (removed).** Instagram's DM emoji games are native mobile-app
+  features — the web client ships no game code and exposes no API to launch or
+  join a game session, so instagram.com cannot be "linked" to the mobile game's
+  shared single-player score. A separate local-only clone was explicitly not
+  wanted, so Feature 11 was removed.
 
 ---
 

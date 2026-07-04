@@ -1,18 +1,31 @@
-// Popup: show today's unfollow count and let the user stop a running bulk job.
-const DAILY_CAP = 150; // keep in sync with src/config.js DAILY_CAP
+// Popup: show today's counts and let the user stop a running bulk job.
+// These caps are duplicated from src/config.js — keep them in sync.
+const DAILY_CAP = 150; // src/config.js DAILY_CAP
+const STORY_DAILY_CAP = 20; // src/config.js STORY.DAILY_CAP
 
+function dayStamp() {
+  return new Date().toISOString().slice(0, 10);
+}
 function todayKey() {
-  return "bwi_daily_" + new Date().toISOString().slice(0, 10);
+  return "bwi_daily_" + dayStamp();
+}
+function storyTodayKey() {
+  return "bwi_daily_story_" + dayStamp();
 }
 
 async function refresh() {
-  const key = todayKey();
-  const res = await chrome.storage.local.get(key);
-  const count = (res && res[key]) || 0;
+  const res = await chrome.storage.local.get([todayKey(), storyTodayKey()]);
+  const count = (res && res[todayKey()]) || 0;
   document.getElementById("count").textContent = count;
   document.getElementById("cap").textContent = DAILY_CAP;
-  const pct = Math.min(100, Math.round((count / DAILY_CAP) * 100));
-  document.getElementById("barfill").style.width = pct + "%";
+  document.getElementById("barfill").style.width =
+    Math.min(100, Math.round((count / DAILY_CAP) * 100)) + "%";
+
+  const storyCount = (res && res[storyTodayKey()]) || 0;
+  document.getElementById("storyCount").textContent = storyCount;
+  document.getElementById("storyCap").textContent = STORY_DAILY_CAP;
+  document.getElementById("storyBarfill").style.width =
+    Math.min(100, Math.round((storyCount / STORY_DAILY_CAP) * 100)) + "%";
 }
 
 document.getElementById("stop").addEventListener("click", async () => {

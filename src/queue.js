@@ -127,7 +127,10 @@
         });
 
         try {
-          await api[action](item.pk);
+          // Pass the whole item as a 2nd arg so actions can read per-item
+          // extras if they need them. Current actions only use item.pk and
+          // ignore the extra arg.
+          await api[action](item.pk, item);
           done++;
           await bumpDailyCount(dailyKey, 1);
           this.emit({
@@ -176,7 +179,10 @@
   };
 
   BWI.queue = queue;
-  BWI.queueUtil = { getDailyCount, isActionBlock };
+  // getDailyCount / bumpDailyCount are exported so one-shot writes that don't
+  // use the bulk queue (e.g. the single story-composer post) can still share
+  // the same per-action daily-budget storage convention.
+  BWI.queueUtil = { getDailyCount, bumpDailyCount, isActionBlock };
 
   // Let the popup remotely stop a running bulk job.
   try {

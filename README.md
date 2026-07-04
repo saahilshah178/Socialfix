@@ -23,11 +23,23 @@ A personal Chrome extension (Manifest V3) that makes follow-management on
    remaining frames of the current person and move a whole user at once. The keys
    are ignored while you're typing (e.g. in the story reply box). Toggle with
    `STORY_NAV` in `src/config.js`.
-6. **Edit bio links on web** — open **Edit profile** (`/accounts/edit/`) and a
-   **Bio links** panel appears at the top. Add, edit, reorder, or remove the
-   links shown in your bio (up to 5, each with an optional title) — the
-   multi-link manager Instagram normally only offers on mobile — then click
-   **Save links**. Toggle with `EDIT_BIO_LINKS` in `src/config.js`.
+6. **See who unfollowed you** — open **your own** Followers list and a
+   **Recently unfollowed you** panel appears at the top. Each visit snapshots
+   your followers; on later visits it lists who dropped off, with a timestamp.
+   Toggle with `SEE_UNFOLLOWERS` in `src/config.js`.
+7. **Enhanced story composer** — the **＋ Enhanced story** button opens a
+   canvas composer with movable **text**, freehand **drawing**, and **fit/fill**
+   background control. Everything is rasterized into the image and posted through
+   the private story-upload API. Toggle with `STORY_CREATE_TOOLS`.
+
+> ⚠️ The story composer (feature 7) drives Instagram's undocumented private
+> write endpoint. **Set `DRY_RUN: true` in `src/config.js` and confirm the
+> logged payload first** before trusting the live call.
+>
+> Some once-planned features were removed because they're **impossible on the
+> web platform** (not code bugs) — story reposting, per-collection unsave, and
+> carousel reorder. See `FEATURE_FEASIBILITY_REPORT.md` for the full analysis
+> and the list of what *is* worth building next (on Instagram and other sites).
 
 ## Install (load unpacked)
 

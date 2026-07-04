@@ -63,13 +63,35 @@
       DAILY_KEY: "bwi_daily_unsave_",
     },
 
-    // Feature 6: edit your bio's multi-link manager (up to 5 links, each with
-    // an optional title) from the desktop web Edit Profile page — Instagram only
-    // exposes this on mobile. Injects a non-destructive bwi- panel into
-    // /accounts/edit/ and saves via the private API. A single low-frequency
-    // write, so it does NOT use queue.js; DRY_RUN is the only safety knob.
-    EDIT_BIO_LINKS: true,
-    MAX_BIO_LINKS: 5, // Instagram caps bio links at 5.
+    // Feature 7: "See who unfollowed you recently". On your own Followers
+    // modal we snapshot your follower set, then diff against the previous
+    // snapshot to surface who left. Storage is capped (one snapshot + one
+    // rolling log per account).
+    SEE_UNFOLLOWERS: true,
+    UNFOLLOWERS_MAX_LOG: 500, // cap the rolling "recently unfollowed" log
+    UNFOLLOWERS_SNAPSHOT_KEY: "bwi_followers_snap_", // + ownId
+    UNFOLLOWERS_LOG_KEY: "bwi_unfollowers_", // + ownId
+
+    // Story upload core (Feature 9 composer). The WEB story-create flow posts a
+    // PLAIN urlencoded configure body (NOT signed_body) to
+    // /create/configure_to_story/ — the exact path the mobile-web PWA's own
+    // "Add to story" uses, reproducible from a cookie-authed content script.
+    // Stories are high-signal, so the daily cap is deliberately low.
+    STORY: {
+      RUPLOAD_HOST: "https://www.instagram.com",
+      CONFIGURE_PATH_WEB: "/create/configure_to_story/",
+      CANVAS_W: 1080,
+      CANVAS_H: 1920,
+      DAILY_KEY: "bwi_daily_story_",
+      DAILY_CAP: 20,
+    },
+
+    // Feature 9: enhanced story-creation composer — text + freehand drawing +
+    // media fit/fill, rasterized into the JPEG and uploaded via the STORY core
+    // above. (Interactive link/poll stickers were removed: they're silently
+    // dropped by the web configure endpoint — mobile-app-only. See
+    // FEATURE_FEASIBILITY_REPORT.md §2.2.)
+    STORY_CREATE_TOOLS: true,
 
     // Button label text we match on. Instagram's CSS classes are obfuscated
     // and change constantly, but the visible English text is stable. To
@@ -87,10 +109,9 @@
       // used only if the URL-shape lookup for adjacent users finds nothing.
       storyPrev: "Previous",
       storyNext: "Next",
-      // Feature 6: the save button on the web Edit Profile page, used only to
-      // locate the edit form so the bio-links panel anchors near it. Falls back
-      // to <main> if not found.
-      editProfileSubmit: "Submit",
+      // Feature 9 (composer): visible strings for our injected controls.
+      enhancedStory: "Enhanced story",
+      postStory: "Post story",
     },
   };
 })();

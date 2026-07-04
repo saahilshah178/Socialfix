@@ -114,23 +114,18 @@
     }, ms);
   }
 
-  // Build one user row for the subsection list.
-  function buildRow(u, handlers) {
-    const row = document.createElement("div");
-    row.className = "bwi-row";
-    row.dataset.pk = u.pk;
-
+  // Layered avatar <img> that never shows a broken image:
+  //   0) Instagram's profile_pic_url, loaded with the page's DEFAULT referrer
+  //      (instagram.com origin) — the same context IG itself uses, so these
+  //      normally load. (The old code forced no-referrer, which dropped the
+  //      origin the CDN expects and is the likely cause of blank avatars.)
+  //   1) reuse an avatar IG already rendered natively for this user, if any
+  //   2) a generated initials avatar (always works)
+  function layeredAvatar(u) {
     const avatar = document.createElement("img");
     avatar.className = "bwi-row__avatar";
     avatar.alt = "";
     avatar.loading = "lazy";
-    // Layered avatar source so a row never shows a broken image:
-    //   0) Instagram's profile_pic_url, loaded with the page's DEFAULT referrer
-    //      (instagram.com origin) — the same context IG itself uses, so these
-    //      normally load. (The old code forced no-referrer, which dropped the
-    //      origin the CDN expects and is the likely cause of blank avatars.)
-    //   1) reuse an avatar IG already rendered natively for this user, if any
-    //   2) a generated initials avatar (always works)
     let stage = 0;
     avatar.addEventListener("error", () => {
       if (stage === 0) {
@@ -152,6 +147,112 @@
       stage = 2;
       avatar.src = initialsAvatar(u.username);
     }
+    return avatar;
+  }
+
+  // Build a plain avatar + profile-link meta row (username, optional full name,
+  // optional subtitle). No action button — the caller appends its own. Used by
+  // renderListSubsection (Feature 7). Uses textContent so user-supplied strings
+  // can't inject markup.
+  function buildUserRow(u, opts = {}) {
+    const row = document.createElement("div");
+    row.className = "bwi-row";
+    row.dataset.pk = u.pk;
+
+    const meta = document.createElement("a");
+    meta.className = "bwi-row__meta";
+    meta.href = `/${u.username}/`;
+    meta.target = "_blank";
+    meta.rel = "noopener";
+    const uname = document.createElement("span");
+    uname.className = "bwi-row__username";
+    uname.textContent = u.username;
+    meta.appendChild(uname);
+    if (u.full_name) {
+      const name = document.createElement("span");
+      name.className = "bwi-row__name";
+      name.textContent = u.full_name;
+      meta.appendChild(name);
+    }
+    if (opts.subtitle) {
+      const sub = document.createElement("span");
+      sub.className = "bwi-row__name";
+      sub.textContent = opts.subtitle;
+      meta.appendChild(sub);
+    }
+
+    row.appendChild(layeredAvatar(u));
+    row.appendChild(meta);
+    return row;
+  }
+
+  // A collapsible titled list of users with an optional per-row action button.
+  // Read-only-friendly (Feature 7 "recently unfollowed you"): the caller passes
+  // the full `users` array and, optionally, { rowActionLabel, onRowAction }.
+  function renderListSubsection(titleText, users, opts = {}) {
+    const root = document.createElement("div");
+    root.className = "bwi-section";
+    root.setAttribute("data-bwi", opts.dataKey || "listsubsection");
+
+    const header = document.createElement("div");
+    header.className = "bwi-section__header";
+    const titleWrap = document.createElement("button");
+    titleWrap.className = "bwi-section__toggle";
+    titleWrap.type = "button";
+    titleWrap.title = "Show/hide this list";
+    const caret = document.createElement("span");
+    caret.className = "bwi-caret";
+    caret.textContent = "▾";
+    titleWrap.appendChild(caret);
+    const title = document.createElement("div");
+    title.className = "bwi-section__title";
+    title.textContent = titleText;
+    titleWrap.appendChild(title);
+    header.appendChild(titleWrap);
+    root.appendChild(header);
+
+    const list = document.createElement("div");
+    list.className = "bwi-list";
+    root.appendChild(list);
+
+    if (!users || users.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "bwi-section__empty";
+      empty.textContent = opts.emptyText || "Nothing to show.";
+      list.appendChild(empty);
+    } else {
+      users.forEach((u) => {
+        const row = buildUserRow(u, { subtitle: u.subtitle });
+        if (opts.rowActionLabel && opts.onRowAction) {
+          const btn = document.createElement("button");
+          btn.className = "bwi-btn bwi-btn--row";
+          btn.textContent = opts.rowActionLabel;
+          btn.addEventListener("click", () => opts.onRowAction(u, row));
+          row.appendChild(btn);
+        }
+        list.appendChild(row);
+      });
+    }
+
+    titleWrap.addEventListener("click", () => {
+      const collapsed = root.classList.toggle("bwi-section--collapsed");
+      caret.textContent = collapsed ? "▸ Show" : "▾ Hide";
+    });
+    if (opts.collapsed) {
+      root.classList.add("bwi-section--collapsed");
+      caret.textContent = "▸ Show";
+    }
+
+    return { root };
+  }
+
+  // Build one user row for the subsection list.
+  function buildRow(u, handlers) {
+    const row = document.createElement("div");
+    row.className = "bwi-row";
+    row.dataset.pk = u.pk;
+
+    const avatar = layeredAvatar(u);
 
     const meta = document.createElement("a");
     meta.className = "bwi-row__meta";
@@ -338,6 +439,70 @@
     };
   }
 
+  // ---- Story-image helpers (Feature 9 composer) ----------------------------
+
+  // Load an <img> from a src (object URL or data URL). Resolves the element.
+  function loadImage(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = src;
+    });
+  }
+
+  // Draw an image/canvas onto a fresh 1080x1920 story canvas. "fill"
+  // cover-crops to fill the frame; "fit" letterboxes the whole image over a
+  // blurred cover of itself. Returns the canvas. Kept un-tainted by only
+  // drawing sources we own the bytes for (the user's locally-picked file).
+  function renderStoryBase(source, mode = "fit") {
+    const S = (BWI.config && BWI.config.STORY) || {};
+    const W = S.CANVAS_W || 1080;
+    const H = S.CANVAS_H || 1920;
+    const canvas = document.createElement("canvas");
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext("2d");
+    const sw = source.naturalWidth || source.width;
+    const sh = source.naturalHeight || source.height;
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, W, H);
+    if (!sw || !sh) return canvas;
+    if (mode === "fill") {
+      const scale = Math.max(W / sw, H / sh);
+      const dw = sw * scale;
+      const dh = sh * scale;
+      ctx.drawImage(source, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    } else {
+      const cover = Math.max(W / sw, H / sh);
+      ctx.save();
+      ctx.filter = "blur(30px)";
+      ctx.drawImage(
+        source,
+        (W - sw * cover) / 2,
+        (H - sh * cover) / 2,
+        sw * cover,
+        sh * cover
+      );
+      ctx.restore();
+      const contain = Math.min(W / sw, H / sh);
+      ctx.drawImage(
+        source,
+        (W - sw * contain) / 2,
+        (H - sh * contain) / 2,
+        sw * contain,
+        sh * contain
+      );
+    }
+    return canvas;
+  }
+
+  function canvasToJpegBlob(canvas, quality = 0.9) {
+    return new Promise((resolve) =>
+      canvas.toBlob((b) => resolve(b), "image/jpeg", quality)
+    );
+  }
+
   BWI.ui = {
     text,
     getDialogs,
@@ -345,6 +510,11 @@
     findScrollContainer,
     findButtonByText,
     toast,
+    buildUserRow,
     renderSubsection,
+    renderListSubsection,
+    loadImage,
+    renderStoryBase,
+    canvasToJpegBlob,
   };
 })();

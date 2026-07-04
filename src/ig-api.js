@@ -1,7 +1,9 @@
 // Better Web Insta — Instagram private web API helpers.
-// Only Feature 2 (the non-follower subsection + bulk unfollow) uses these.
-// All calls are same-origin to www.instagram.com, so cookies ride along
-// automatically with credentials:'include' — no login handling needed.
+// Shared by Feature 2 (non-follower subsection + bulk unfollow), Feature 4
+// (bulk unsave), Feature 7 (see-who-unfollowed, read-only), and Feature 9
+// (story composer upload/configure). All calls are same-origin to
+// www.instagram.com, so cookies ride along automatically with
+// credentials:'include' — no login handling needed.
 (function () {
   "use strict";
 
@@ -44,7 +46,8 @@
   async function igFetch(path, opts = {}) {
     const headers = Object.assign(
       {
-        "X-IG-App-ID": cfg.APP_ID,
+        // Per-call X-IG-App-ID override (opts.appId); defaults to the web APP_ID.
+        "X-IG-App-ID": opts.appId || cfg.APP_ID,
         "X-ASBD-ID": cfg.ASBD_ID,
         "X-CSRFToken": getCsrf() || "",
         "X-Requested-With": "XMLHttpRequest",
@@ -57,7 +60,10 @@
       opts.headers || {}
     );
 
-    const res = await fetch(ORIGIN + path, {
+    // opts.absolute lets callers pass a full URL (e.g. the rupload_igphoto
+    // upload host) instead of a path appended to the www origin.
+    const url = opts.absolute ? path : ORIGIN + path;
+    const res = await fetch(url, {
       method: opts.method || "GET",
       headers,
       body: opts.body,
@@ -165,128 +171,6 @@
   const unfollow = (pk) => postFriendship("destroy", pk);
   const removeFollower = (pk) => postFriendship("remove_follower", pk);
 
-  // ---- Bio links (Feature 6) ----------------------------------------------
-  // The multi-link bio manager (up to 5 links, each with a title) is gated to
-  // the mobile app — the web "Links" field is greyed out — but the gate is
-  // purely client-side. These are the real endpoints the app uses (confirmed
-  // from instagrapi's current mixins/account.py); we call them same-origin from
-  // the content script, which bypasses the web UI gate:
-  //   POST /api/v1/accounts/update_bio_links/  — add / edit / reorder (full set)
-  //   POST /api/v1/accounts/remove_bio_links/  — delete by link_id
-  // Bodies use Instagram's signed_body=SIGNATURE.<urlencoded JSON> form encoding.
-  // The "SIGNATURE." prefix is a constant — Instagram no longer verifies the
-  // signature, so no real HMAC is needed. NOTE: instagrapi emulates the MOBILE
-  // client, so the web-specific acceptance of _uuid / link_id / signed_body is
-  // verified empirically (run DRY_RUN:true first — the full payload is logged).
-  // If a live call is rejected, the obj shape + bioSignedBody here are the one
-  // place to adjust.
-
-  // Read the logged-in user's current bio links from the same /users/<id>/info/
-  // response getOwnUsername already uses. Returns a normalized, ordered array of
-  // { url, title, link_id, link_type } so the editor can pre-fill itself and so
-  // edits/removals can reference each link by its id.
-  async function getBioLinks() {
-    const ownId = getOwnUserId();
-    if (!ownId) return [];
-    const data = await igFetch(`/api/v1/users/${ownId}/info/`);
-    const raw = (data && data.user && data.user.bio_links) || [];
-    return raw.map((l) => ({
-      url: l.url || l.lynx_url || "",
-      title: l.title || "",
-      link_id: l.link_id != null ? String(l.link_id) : null,
-      link_type: l.link_type || "external",
-    }));
-  }
-
-  // Encode an object as Instagram's signed form body. URLSearchParams handles
-  // the URL-encoding of the JSON value correctly.
-  function bioSignedBody(obj) {
-    return new URLSearchParams({
-      signed_body: "SIGNATURE." + JSON.stringify(obj),
-    }).toString();
-  }
-
-  // update_bio_links / remove_bio_links expect a device _uuid. The web client
-  // has no native one, so we mint a stable UUID and persist it (same caching
-  // pattern as getOwnUsername's username cache).
-  async function getDeviceUuid() {
-    const key = "bwi_device_uuid";
-    try {
-      const cached = await chrome.storage.local.get(key);
-      if (cached && cached[key]) return cached[key];
-    } catch (_) {
-      /* storage may be unavailable in odd contexts; fall through */
-    }
-    const uuid =
-      (typeof crypto !== "undefined" && crypto.randomUUID && crypto.randomUUID()) ||
-      String(Date.now()) + "-" + Math.random().toString(16).slice(2);
-    try {
-      await chrome.storage.local.set({ [key]: uuid });
-    } catch (_) {}
-    return uuid;
-  }
-
-  // Add / edit / reorder: send the full ordered list. Array order = display
-  // order; existing links carry their link_id so they're edited in place rather
-  // than recreated. `updated_links` is a JSON string nested inside the outer
-  // JSON object (double-encoded), per Instagram's wire format.
-  async function updateBioLinks(links) {
-    const mapped = (links || [])
-      .map((l) => {
-        const o = {
-          url: (l.url || "").trim(),
-          title: (l.title || "").trim(),
-          link_type: l.link_type || "external",
-        };
-        if (l.link_id) o.link_id = String(l.link_id);
-        return o;
-      })
-      .filter((l) => l.url);
-    const obj = {
-      updated_links: JSON.stringify(mapped),
-      _uid: getOwnUserId(),
-      _uuid: await getDeviceUuid(),
-      _csrftoken: getCsrf(),
-    };
-    if (cfg.DRY_RUN) {
-      console.log("[BWI][DRY_RUN] update_bio_links (not sent)", obj);
-      return { dry_run: true, status: "ok" };
-    }
-    return igFetch("/api/v1/accounts/update_bio_links/", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: bioSignedBody(obj),
-    });
-  }
-
-  // Delete bio links by id.
-  async function removeBioLinks(linkIds) {
-    if (!linkIds || !linkIds.length) return { skipped: true };
-    const obj = {
-      _uid: getOwnUserId(),
-      _uuid: await getDeviceUuid(),
-      _csrftoken: getCsrf(),
-      link_ids: linkIds.map(String),
-    };
-    if (cfg.DRY_RUN) {
-      console.log("[BWI][DRY_RUN] remove_bio_links (not sent)", obj);
-      return { dry_run: true, status: "ok" };
-    }
-    return igFetch("/api/v1/accounts/remove_bio_links/", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: bioSignedBody(obj),
-    });
-  }
-
-  // Save the editor's state: first delete any links the user removed (by id),
-  // then push the full ordered list. Both writes are DRY_RUN-guarded inside
-  // their helpers; IgApiError propagates so the UI can show the status code.
-  async function setBioLinks(links, removedIds) {
-    if (removedIds && removedIds.length) await removeBioLinks(removedIds);
-    return updateBioLinks(links);
-  }
-
   // Instagram media shortcodes (the /p/<code>/ slug) are the media's numeric pk
   // base64-encoded with this alphabet. Decoding locally avoids an extra network
   // round-trip just to turn a saved-grid tile into the id /unsave/ needs.
@@ -304,7 +188,10 @@
     return id.toString();
   }
 
-  // Fully remove a post from Saved (across all collections).
+  // Remove a post from Saved entirely (across every collection). Removing from
+  // a single collection only is NOT supported: that's a mobile-app-tier action
+  // the web endpoint silently ignores or turns into a full unsave (see
+  // FEATURE_FEASIBILITY_REPORT.md §2.5), so we don't offer it.
   async function unsave(mediaId) {
     if (cfg.DRY_RUN) {
       console.log(`[BWI][DRY_RUN] unsave ${mediaId} (not sent)`);
@@ -317,6 +204,71 @@
     });
   }
 
+  // ---- Story upload core (Feature 9 composer) -----------------------------
+  // Two-step: rupload_igphoto (binary) then configure. The WEB story-create
+  // flow posts a PLAIN urlencoded body to /create/configure_to_story/ — the
+  // same path the mobile-web PWA's own "Add to story" uses, reproducible from a
+  // cookie-authed content script.
+
+  // rupload_igphoto — upload JPEG bytes; returns the upload_id string.
+  async function ruploadPhoto(bytes, dims) {
+    const uploadId = String(Date.now());
+    const name = "fb_uploader_" + uploadId;
+    const params = {
+      media_type: 1,
+      upload_id: uploadId,
+      upload_media_height: (dims && dims.height) || cfg.STORY.CANVAS_H,
+      upload_media_width: (dims && dims.width) || cfg.STORY.CANVAS_W,
+    };
+    const len = bytes.byteLength != null ? bytes.byteLength : bytes.size;
+    if (cfg.DRY_RUN) {
+      console.log(
+        "[BWI][DRY_RUN] rupload_igphoto (not sent)",
+        name,
+        params,
+        "bytes:",
+        len
+      );
+      return uploadId;
+    }
+    await igFetch(cfg.STORY.RUPLOAD_HOST + "/rupload_igphoto/" + name, {
+      absolute: true,
+      method: "POST",
+      headers: {
+        "X-Entity-Name": name,
+        "X-Entity-Length": String(len),
+        Offset: "0",
+        "X-Instagram-Rupload-Params": JSON.stringify(params),
+        "X-Entity-Type": "image/jpeg",
+        "Content-Type": "application/octet-stream",
+      },
+      body: bytes,
+    });
+    return uploadId;
+  }
+
+  // Configure an uploaded photo as a story — WEB plain-form path. The composer
+  // burns all its content (text + freehand drawing) into the JPEG before
+  // upload, so the body is just upload_id + empties.
+  async function configureToStory({ uploadId, caption = "" } = {}) {
+    const form = {
+      upload_id: uploadId,
+      caption: caption || "",
+      usertags: "",
+      custom_accessibility_caption: "",
+      retry_timeout: "",
+    };
+    if (cfg.DRY_RUN) {
+      console.log("[BWI][DRY_RUN] configure_to_story (not sent)", form);
+      return { dry_run: true, status: "ok" };
+    }
+    return igFetch(cfg.STORY.CONFIGURE_PATH_WEB, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams(form).toString(),
+    });
+  }
+
   BWI.api = {
     getCookie,
     getOwnUserId,
@@ -326,12 +278,10 @@
     fetchAllFollowers,
     unfollow,
     removeFollower,
-    getBioLinks,
-    updateBioLinks,
-    removeBioLinks,
-    setBioLinks,
     shortcodeToMediaId,
     unsave,
+    ruploadPhoto,
+    configureToStory,
     sleep,
     IgApiError,
   };

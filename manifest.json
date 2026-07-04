@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Better Web Insta",
-  "version": "1.0.0",
-  "description": "Shift-click to instantly unfollow/remove on instagram.com, plus a 'doesn't follow you back' subsection with bulk unfollow.",
+  "version": "2.0.0",
+  "description": "Power-user tools for instagram.com: shift-click unfollow/remove, non-follower + recently-unfollowed subsections, bulk unsave, keyboard story nav, and an enhanced story composer (text + drawing).",
   "permissions": ["storage"],
   "host_permissions": ["https://www.instagram.com/*"],
   "content_scripts": [
@@ -19,7 +19,8 @@
         "src/feature3.js",
         "src/feature4.js",
         "src/feature5.js",
-        "src/feature6.js"
+        "src/feature7.js",
+        "src/feature9.js"
       ],
       "css": ["styles.css"]
     }
