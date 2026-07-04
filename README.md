@@ -23,10 +23,14 @@ A personal Chrome extension (Manifest V3) that makes follow-management on
    remaining frames of the current person and move a whole user at once. The keys
    are ignored while you're typing (e.g. in the story reply box). Toggle with
    `STORY_NAV` in `src/config.js`.
-6. **See who unfollowed you** — open **your own** Followers list and a
-   **Recently unfollowed you** panel appears at the top. Each visit snapshots
-   your followers; on later visits it lists who dropped off, with a timestamp.
-   Toggle with `SEE_UNFOLLOWERS` in `src/config.js`.
+6. **See who dropped off your followers** — open **your own** Followers list and
+   a panel appears at the top listing accounts that **no longer follow you**,
+   each with the time it was first noticed. It snapshots your followers and
+   diffs on later visits (re-scanning at most once every few hours to stay light
+   on the API), and it's careful never to fabricate results from a partial read.
+   Labeling is honest: a drop-off can be a real unfollow *or* a deactivated /
+   banned / blocked / went-private account, so it never claims "unfollowed" as
+   fact. Toggle with `SEE_UNFOLLOWERS` in `src/config.js`.
 7. **Enhanced story composer** — the **＋ Enhanced story** button opens a
    canvas composer with movable **text**, freehand **drawing**, and **fit/fill**
    background control. Everything is rasterized into the image and posted through

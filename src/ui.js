@@ -211,6 +211,15 @@
     header.appendChild(titleWrap);
     root.appendChild(header);
 
+    // Optional muted clarifying line under the title (e.g. a caveat about what
+    // the list actually represents).
+    if (opts.note) {
+      const note = document.createElement("div");
+      note.className = "bwi-section__note";
+      note.textContent = opts.note;
+      root.appendChild(note);
+    }
+
     const list = document.createElement("div");
     list.className = "bwi-list";
     root.appendChild(list);

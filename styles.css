@@ -257,6 +257,13 @@
   padding: 4px 0;
 }
 
+.bwi-section__note {
+  font-size: 12px;
+  opacity: 0.6;
+  padding: 0 0 6px;
+  line-height: 1.35;
+}
+
 .bwi-input {
   width: 100%;
   box-sizing: border-box;

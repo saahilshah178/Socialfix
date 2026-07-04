@@ -42,8 +42,13 @@ Instagram is the initial platform. The extension's architecture will expand to s
 **Acceptance criteria:**
 - Subsection appears in the user's own Followers modal (not on other profiles)
 - Lists accounts that were in the previous snapshot but not the current one
-- Timestamps stored per snapshot so the UI can show "unfollowed since [date]"
-- Storage capped to prevent unbounded growth (store only the delta + last N snapshots)
+- Each entry shows when the drop-off was first noticed
+- Storage capped to prevent unbounded growth (one snapshot + one rolling log per account)
+
+**Hardening shipped (per `FEATURE_FEASIBILITY_REPORT.md` §2.1):**
+- **Min-interval re-scan** (`UNFOLLOWERS_MIN_SNAPSHOT_INTERVAL_MS`) so opening the modal repeatedly doesn't re-paginate the whole follower list; within the window it renders cached results.
+- **Partial-read guard:** `ig-api` throws on an incomplete paginate (never returns a truncated list), and a proportional-drop check (`UNFOLLOWERS_MIN_TRUST_RATIO`) ignores an implausibly small scan — so a rate-limited read can't fabricate mass false unfollows.
+- **Honest labeling:** the UI says "no longer follows you", never "unfollowed", with a note that drop-offs also include deactivated / banned / blocked / went-private accounts.
 
 ---
 

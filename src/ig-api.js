@@ -108,6 +108,11 @@
   //   onPage(pageUsers)   — optional; called with just that page's normalized
   //                         users so the caller can stream results in as they
   //                         arrive instead of waiting for the whole list.
+  // GUARANTEE: resolves only with a COMPLETE list (paginated until Instagram
+  // stops returning a next_max_id). If the hard page ceiling is hit while more
+  // pages remain, it throws rather than returning a silently-truncated list —
+  // callers that diff snapshots (Feature 7) rely on this so a partial read can
+  // never fabricate false unfollows.
   async function fetchAllList(kind, userId, onProgress, onPage) {
     const out = [];
     let maxId = null;
@@ -123,10 +128,15 @@
       if (onPage) onPage(pageUsers);
       if (onProgress) onProgress(out.length);
       maxId = data.next_max_id ? String(data.next_max_id) : null;
-      if (!maxId) break;
+      if (!maxId) return out; // reached a clean end-of-list terminator
       if (cfg.PAGE_DELAY_MS) await sleep(cfg.PAGE_DELAY_MS);
     }
-    return out;
+    // Fell out of the loop with more pages pending → incomplete read.
+    throw new IgApiError(
+      `${kind} list did not reach end of list (pagination ceiling hit)`,
+      0,
+      null
+    );
   }
 
   const fetchAllFollowing = (userId, onProgress, onPage) =>

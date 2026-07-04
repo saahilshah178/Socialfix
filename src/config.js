@@ -71,6 +71,15 @@
     UNFOLLOWERS_MAX_LOG: 500, // cap the rolling "recently unfollowed" log
     UNFOLLOWERS_SNAPSHOT_KEY: "bwi_followers_snap_", // + ownId
     UNFOLLOWERS_LOG_KEY: "bwi_unfollowers_", // + ownId
+    // Don't re-paginate the full follower list more than once per this window —
+    // opening the Followers modal repeatedly shouldn't hammer the API. Within
+    // the window we render from the cached snapshot + log instead of re-scanning.
+    UNFOLLOWERS_MIN_SNAPSHOT_INTERVAL_MS: 6 * 60 * 60 * 1000, // 6 hours
+    // Safety guard against a partial / rate-limited read fabricating mass false
+    // unfollows: if a scan's follower count falls below this fraction of the
+    // last snapshot (and the snapshot was non-trivial), distrust it — don't diff
+    // and don't overwrite the snapshot.
+    UNFOLLOWERS_MIN_TRUST_RATIO: 0.6,
 
     // Story upload core (Feature 9 composer). The WEB story-create flow posts a
     // PLAIN urlencoded configure body (NOT signed_body) to
