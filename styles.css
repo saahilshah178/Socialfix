@@ -240,6 +240,108 @@ ytd-playlist-video-renderer.bwi-yt-selected {
   cursor: pointer;
 }
 
+/* ---- X / Twitter (x-unlike.js, x-unfollow.js) ---- */
+
+/* Floating pill toolbar (bulk unlike) + launcher (non-followers). */
+.bwi-x-toolbar {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2147483000;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #1d9bf0;
+  color: #fff;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+  font-family: "TwitterChirp", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+}
+.bwi-x-count {
+  font-weight: 600;
+}
+
+.bwi-x-launch {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 2147483000;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 999px;
+  background: #1d9bf0;
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+  font-family: "TwitterChirp", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.bwi-x-launch:hover {
+  background: #1a8cd8;
+}
+
+.bwi-x-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  font-family: "TwitterChirp", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.bwi-x-card {
+  width: min(560px, 92vw);
+  max-height: 84vh;
+  display: flex;
+  flex-direction: column;
+  background: #15202b;
+  color: #e7e9ea;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+}
+@media (prefers-color-scheme: light) {
+  .bwi-x-card {
+    background: #fff;
+    color: #0f1419;
+  }
+}
+.bwi-x-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.bwi-x-titletext {
+  font-size: 17px;
+  font-weight: 800;
+}
+.bwi-x-status {
+  font-size: 13px;
+  opacity: 0.8;
+  min-height: 18px;
+  margin-bottom: 8px;
+}
+.bwi-x-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.bwi-x-list {
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+
+.bwi-row--done {
+  opacity: 0.45;
+}
+
 .bwi-tile {
   position: relative;
 }

@@ -168,6 +168,71 @@
       },
     },
 
+    // ---- X / Twitter (x.com) ----------------------------------------------
+    // Loaded only on x.com (see manifest). Selectors prefer data-testid (X's
+    // semi-stable non-obfuscated hook, analogous to IG's ARIA) and visible
+    // text; the private API is same-origin cookie-authed (no login code).
+    // Global DRY_RUN applies to the bulk write actions.
+    X: {
+      // Feature toggles.
+      BULK_UNLIKE: true, // toolbar on your /likes tab
+      BULK_UNFOLLOW: true, // non-follower scan + bulk unfollow
+      CHRONO_FEED: true, // force the chronological Following feed on Home
+      CHRONO_FORCE_LATEST: true, // also try the "Latest/Recent" sort (Nov 2025+)
+      HIDE_PROMOTED: true, // read-only ad/promoted filter
+      SHORTCUTS: true, // keyboard actions on the hovered tweet
+
+      // The public web app Bearer token. It ships in every x.com page load and
+      // has been stable for years (it is NOT a per-user secret). If the private
+      // API ever 401s, this is the first knob — re-grab it from a graphql/1.1
+      // request in DevTools.
+      BEARER:
+        "AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA",
+      API_HOST: "https://x.com/i/api", // v1.1 lives at /i/api/1.1 (NOT api.x.com)
+
+      // Bulk UNLIKE throttling (own /likes). Community-observed ~500 unlikes /
+      // 15 min before a 429 (15-60 min block first offense) → stay well under.
+      // Its own daily budget.
+      UNLIKE: {
+        MIN_DELAY_MS: 1500,
+        MAX_DELAY_MS: 3500,
+        SESSION_CAP: 200,
+        DAILY_CAP: 500,
+        DAILY_KEY: "bwi_daily_unlike_x_",
+      },
+      // Bulk UNFOLLOW throttling. X write-restricts aggressive unfollowing:
+      // safe ceiling ~50-100/day; 400+/day → 24-72h restriction. Pacing matters
+      // as much as volume, so delays are long. Do NOT reuse IG's caps.
+      UNFOLLOW: {
+        MIN_DELAY_MS: 4000,
+        MAX_DELAY_MS: 9000,
+        SESSION_CAP: 50,
+        DAILY_CAP: 75,
+        DAILY_KEY: "bwi_daily_unfollow_x_",
+      },
+
+      // Visible-text / marker anchors (English — localize here). X flips the
+      // ad marker text periodically; that's the main maintenance point.
+      LABELS: {
+        adMarkers: ["Ad", "Promoted"], // a tweet containing one of these = promoted
+        premiumNagAria: "Subscribe to Premium", // aria-label on the upsell aside
+        followingTab: "Following", // Home tab text
+        latestSort: ["Latest", "Recent"], // chronological sort option text
+        unfollowConfirm: "Unfollow", // (reserved) confirm-dialog button text
+      },
+
+      // Keyboard actions on the HOVERED tweet (whichever article the mouse is
+      // over). Matched against e.key (lowercased) + shiftKey. Chosen to sit
+      // outside X's native single-key shortcuts and to require Shift for the
+      // ones that mutate. No-op while typing.
+      KEYS: {
+        like: { key: "e", shift: false }, // toggle like on hovered tweet
+        reply: { key: "r", shift: true }, // open reply composer
+        downloadPhoto: { key: "d", shift: true }, // open full-res image(s)
+        copyLink: { key: "c", shift: true }, // copy tweet URL
+      },
+    },
+
     // Button label text we match on. Instagram's CSS classes are obfuscated
     // and change constantly, but the visible English text is stable. To
     // support another language, swap these for that locale's labels.

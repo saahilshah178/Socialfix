@@ -68,6 +68,32 @@ Both are pure DOM automation riding YouTube's own UI (no private API calls).
 The global `DRY_RUN` flag applies: bulk removals log to the console instead of
 clicking.
 
+## X (Twitter)
+
+1. **Bulk unlike** — on your own **Likes** tab (`x.com/<you>/likes`), a floating
+   toolbar shows **Unlike loaded (n)**. It unlikes the currently-loaded tweets
+   by clicking each native heart through the throttled queue (1.5–3.5 s apart);
+   scroll to load more and run again. Two-click confirm, **Stop** anytime.
+   Toggle with `X.BULK_UNLIKE`.
+2. **Unfollow people who don't follow you back** — a floating **Non-followers**
+   button opens a panel; **Scan** paginates your following and checks follow-back
+   in batches, then lists everyone who doesn't follow you. Unfollow individually
+   or **Unfollow all**, queued with conservative X limits (X restricts fast
+   unfollowing). Toggle with `X.BULK_UNFOLLOW`.
+3. **Chronological Following feed** — on Home, auto-switches from the algorithmic
+   "For You" tab to **Following** (and tries the Latest/Recent sort), once per
+   visit so it won't fight you. Toggle with `X.CHRONO_FEED`.
+4. **Hide promoted content** — read-only filter that removes promoted tweets and
+   the Premium upsell (otherwise only gone behind X Premium). Nothing is sent to
+   X. Toggle with `X.HIDE_PROMOTED`.
+5. **Keyboard shortcuts** — act on the tweet **under your mouse** (X's native
+   keys need keyboard focus): **E** like/unlike, **Shift+R** reply, **Shift+D**
+   open full-res photo(s), **Shift+C** copy link. Toggle with `X.SHORTCUTS`.
+
+Bulk unlike and unfollow ride `queue.js` with X-specific caps and their own
+daily budgets; `DRY_RUN` logs instead of acting. The feed, hide, and shortcut
+features are pure DOM (no API, no writes).
+
 ## Install (load unpacked)
 
 1. Go to `chrome://extensions`.

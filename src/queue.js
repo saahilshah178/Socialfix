@@ -39,7 +39,8 @@
 
   const rand = (min, max) => Math.floor(min + Math.random() * (max - min));
 
-  // Detect Instagram's "action blocked" signal from an API error.
+  // Detect a "stop now" rate-limit / action-block signal from an API error.
+  // Covers both Instagram and X (Twitter); 429 is the universal case.
   function isActionBlock(err) {
     if (!err) return false;
     if (err.status === 429) return true;
@@ -52,6 +53,12 @@
       if (typeof b.message === "string") {
         if (b.message === "feedback_required") return true;
         if (/block|spam|wait/i.test(b.message)) return true;
+      }
+      // X returns an errors:[{code}] array: 88 rate-limit, 326 locked/verify,
+      // 64 suspended, 261 write-restricted. Any of these means stop.
+      if (Array.isArray(b.errors)) {
+        const codes = new Set([88, 326, 64, 261]);
+        if (b.errors.some((e) => e && codes.has(Number(e.code)))) return true;
       }
     }
     return false;

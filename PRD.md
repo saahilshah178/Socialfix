@@ -143,7 +143,7 @@ The extension will evolve into a **platform-agnostic power-user toolkit**. Insta
 
 | Platform | Feature directions |
 |---|---|
-| **Twitter / X** | Bulk unlike, bulk unfollow non-followers, chronological feed enforcer, keyboard shortcuts parity, hide algorithmic content |
+| **Twitter / X** | ✅ **Shipped** — bulk unlike (`x-unlike.js`), bulk unfollow non-followers (`x-api.js` + `x-unfollow.js`), chronological Following feed (`x-feed.js`), keyboard shortcuts on the hovered tweet (`x-keys.js`), hide promoted content (`x-hide.js`) |
 | **TikTok** | Bulk unlike, see mutual follows, bulk remove from favorites |
 | **Reddit** | Bulk unsave, hide promoted posts, ~~keyboard-driven post navigation~~ (native — do not build) |
 | **YouTube** | ✅ **Shipped** — bulk-remove Watch Later + bulk unlike Liked videos (`src/yt-bulk.js`), keyboard gap-fills for Like/Save/Subscribe/comment (`src/yt-keys.js`). Only the genuine gaps were added; YouTube's large native shortcut set was not rebuilt. |
