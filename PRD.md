@@ -144,10 +144,10 @@ The extension will evolve into a **platform-agnostic power-user toolkit**. Insta
 | Platform | Feature directions |
 |---|---|
 | **Twitter / X** | ✅ **Shipped** — bulk unlike (`x-unlike.js`), bulk unfollow non-followers (`x-api.js` + `x-unfollow.js`), chronological Following feed (`x-feed.js`), keyboard shortcuts on the hovered tweet (`x-keys.js`), hide promoted content (`x-hide.js`) |
-| **TikTok** | Bulk unlike, see mutual follows, bulk remove from favorites |
-| **Reddit** | Bulk unsave, hide promoted posts, ~~keyboard-driven post navigation~~ (native — do not build) |
+| **TikTok** | ✅ **Shipped** — bulk remove from Liked + Favorites via pure DOM (`tiktok-bulk.js`). ~~See mutual follows~~ (IMPOSSIBLE — X-Bogus-gated). Bulk-unlike via the private API deferred (kill-switch fragile; the DOM remover covers Likes). |
+| **Reddit** | ✅ **Shipped** — bulk unsave (`reddit-unsave.js`), hide promoted (`reddit-hide.js`). ~~Keyboard post nav~~ (native — do not build). |
 | **YouTube** | ✅ **Shipped** — bulk-remove Watch Later + bulk unlike Liked videos (`src/yt-bulk.js`), keyboard gap-fills for Like/Save/Subscribe/comment (`src/yt-keys.js`). Only the genuine gaps were added; YouTube's large native shortcut set was not rebuilt. |
-| **LinkedIn** | Bulk withdraw pending connection requests, bulk remove connections, hide promoted content |
+| **LinkedIn** | ✅ **Shipped** — bulk-withdraw sent invitations (`linkedin-invites.js`), hide promoted (`linkedin-hide.js`). Bulk-remove connections **deferred** (FRAGILE + destructive/no-undo + highest account-restriction risk; build with a live DRY_RUN pass). |
 
 Platform modules follow the same conventions as the Instagram implementation
 (the YouTube module is the reference for new platforms):
@@ -160,6 +160,23 @@ Platform modules follow the same conventions as the Instagram implementation
 - `DRY_RUN` applies globally across all platforms
 - Each platform gets its own `content_scripts` entry in `manifest.json`, loaded
   only on that host
+
+### Deliberately deferred (feasible, but not shipped blind)
+
+Two features the report rates buildable were left for a supervised pass rather
+than shipped without a live test, because both are high-consequence:
+
+- **LinkedIn — bulk-remove 1st-degree connections** (§3.16, FRAGILE). Destructive
+  with **no undo**, on the most automation-hostile host, and the report's
+  highest write-risk. Wire it as DOM-automation (overflow → "Remove connection"
+  → confirm modal, MutationObserver-confirmed like IG Feature 1) behind a
+  default-OFF toggle, and validate under `DRY_RUN` on a real account first.
+- **TikTok — bulk-unlike via the private `commit/item/digg` API** (§3.6). Works
+  today but is an explicit **kill-switch** if TikTok enables X-Bogus on
+  in-session calls, and needs a MAIN-world bridge + page-state reading. The
+  shipped pure-DOM remover already covers the Liked tab safely, so the API path
+  is only worth adding if the DOM one proves too slow — and only after a DevTools
+  check that a manual unlike still fires `digg` without an `X-Bogus` param.
 
 ---
 

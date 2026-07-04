@@ -94,6 +94,46 @@ Bulk unlike and unfollow ride `queue.js` with X-specific caps and their own
 daily budgets; `DRY_RUN` logs instead of acting. The feed, hide, and shortcut
 features are pure DOM (no API, no writes).
 
+## Reddit
+
+1. **Bulk unsave** — on your Saved page (best on **old.reddit.com/prefs/saved**;
+   new Reddit supported best-effort via shadow-DOM), a floating toolbar unsaves
+   the currently-loaded items through the throttled queue. Scroll to load more,
+   run again. Toggle with `REDDIT.BULK_UNSAVE`.
+2. **Hide promoted posts** — read-only filter using Reddit's mandated "Promoted"
+   label and the `shreddit-ad-post` element. Toggle with `REDDIT.HIDE_PROMOTED`.
+
+## LinkedIn
+
+1. **Bulk-withdraw sent invitations** — on
+   **linkedin.com/mynetwork/invitation-manage/sent/**, a toolbar withdraws your
+   pending invites one at a time (click Withdraw → confirm popover), through the
+   queue with **deliberately slow, low caps** — LinkedIn flags activity bursts.
+   It **stops immediately** if any restriction/CAPTCHA banner appears. Toggle
+   with `LINKEDIN.WITHDRAW_INVITES`. *Try `DRY_RUN: true` first.*
+2. **Hide promoted content** — read-only filter with robust text matching (it
+   defeats LinkedIn's zero-width-character obfuscation of the "Promoted" label).
+   Fragile by nature — expect occasional label upkeep. Toggle with
+   `LINKEDIN.HIDE_PROMOTED`.
+
+## TikTok
+
+1. **Bulk remove from Liked / Favorites** — on your own profile's **Liked** or
+   **Favorites** tab, a toolbar removes the loaded videos: for each, it opens
+   the video, clicks the like/favorite toggle off, and closes — through the
+   throttled queue. Pure DOM (no private API / no request-signing, so it's
+   robust against TikTok's anti-automation). Toggle with `TIKTOK.BULK_REMOVE`.
+
+> **Two feasible-but-risky features were intentionally left for a supervised
+> pass** (see `FEATURE_FEASIBILITY_REPORT.md`): **LinkedIn bulk-remove
+> connections** (destructive, no undo, highest account-restriction risk) and
+> **TikTok bulk-unlike via the private API** (kill-switch fragile). The DOM
+> TikTok remover above covers Likes safely instead.
+
+All Reddit/LinkedIn/TikTok bulk actions ride the same `queue.js` throttle with
+per-platform caps and their own daily budgets; `DRY_RUN` logs instead of acting.
+The hide-promoted filters are read-only (no writes, no account risk).
+
 ## Install (load unpacked)
 
 1. Go to `chrome://extensions`.

@@ -233,6 +233,97 @@
       },
     },
 
+    // ---- Reddit (*.reddit.com) --------------------------------------------
+    REDDIT: {
+      BULK_UNSAVE: true, // toolbar on the saved-posts page
+      HIDE_PROMOTED: true, // read-only promoted-post filter
+
+      // Bulk unsave throttling (low risk; 429 only on rapid bursts).
+      UNSAVE: {
+        MIN_DELAY_MS: 900,
+        MAX_DELAY_MS: 2200,
+        SESSION_CAP: 200,
+        DAILY_CAP: 1000,
+        DAILY_KEY: "bwi_daily_unsave_reddit_",
+      },
+
+      LABELS: {
+        // old.reddit action-row link text (lowercased match).
+        unsave: "unsave",
+        unsaveComment: "delete from saved", // comments variant
+        // new/shreddit overflow menu item text.
+        removeFromSaved: "Remove from saved",
+        // Promoted-post markers. Reddit's 2026 ad policy mandates a visible,
+        // non-removable "Promoted" label — that's the stable hook.
+        promotedMarkers: ["promoted", "Promoted"],
+      },
+    },
+
+    // ---- LinkedIn (linkedin.com) ------------------------------------------
+    // Most automation-hostile host: conservative caps, human-like pacing, and
+    // hard stop on any restriction/CAPTCHA banner. DRY_RUN-first is wise.
+    LINKEDIN: {
+      WITHDRAW_INVITES: true, // bulk-withdraw sent invitations
+      HIDE_PROMOTED: true, // read-only promoted filter (fragile, best-effort)
+
+      // Withdrawing your own stale invites is low-provocation, but a burst of
+      // rapid clicks is exactly what LinkedIn flags. Keep it slow and low.
+      WITHDRAW: {
+        MIN_DELAY_MS: 3000,
+        MAX_DELAY_MS: 7000,
+        SESSION_CAP: 40,
+        DAILY_CAP: 100,
+        DAILY_KEY: "bwi_daily_withdraw_li_",
+      },
+
+      LABELS: {
+        withdraw: "Withdraw", // button + inline-confirm popover text
+        // Interstitial/restriction words that must halt any run immediately.
+        restrictionMarkers: ["unusual activity", "restricted", "verify you", "are you a human", "captcha"],
+        // "Promoted" label variants (LinkedIn actively obfuscates/localizes it).
+        promotedMarkers: ["Promoted", "Promoted by"],
+      },
+    },
+
+    // ---- TikTok (tiktok.com) ----------------------------------------------
+    // Bulk remove from your own Liked / Favorites tabs. Pure DOM automation of
+    // the browse modal (no private API, no X-Bogus signing) — robust against
+    // TikTok's request-signing, at the cost of driving the UI per item.
+    TIKTOK: {
+      BULK_REMOVE: true,
+
+      // ~100 removals/hr before a ~1hr soft rate-limit (no bans reported).
+      REMOVE: {
+        MIN_DELAY_MS: 3000,
+        MAX_DELAY_MS: 6000,
+        SESSION_CAP: 100,
+        DAILY_CAP: 300,
+        DAILY_KEY: "bwi_daily_remove_tiktok_",
+      },
+
+      // Which profile tab each mode targets (matched by data-e2e / aria / text)
+      // and the toggle each one flips inside the opened video modal.
+      TABS: {
+        liked: {
+          name: "Liked",
+          tabTestId: "liked-tab",
+          tabText: "Liked",
+          // The like button inside the modal; aria-label prefix (localized text
+          // follows). Clicking it while pressed unlikes.
+          toggleAria: "like",
+        },
+        favorites: {
+          name: "Favorites",
+          tabTestId: "favorites-tab",
+          tabText: "Favorites",
+          toggleAria: "favorite",
+        },
+      },
+      LABELS: {
+        browseClose: "browse-close", // data-e2e on the modal close button
+      },
+    },
+
     // Button label text we match on. Instagram's CSS classes are obfuscated
     // and change constantly, but the visible English text is stable. To
     // support another language, swap these for that locale's labels.
