@@ -145,15 +145,21 @@ The extension will evolve into a **platform-agnostic power-user toolkit**. Insta
 |---|---|
 | **Twitter / X** | Bulk unlike, bulk unfollow non-followers, chronological feed enforcer, keyboard shortcuts parity, hide algorithmic content |
 | **TikTok** | Bulk unlike, see mutual follows, bulk remove from favorites |
-| **Reddit** | Bulk unsave, hide promoted posts, keyboard-driven post navigation |
-| **YouTube** | Bulk remove from Watch Later, bulk unlike, keyboard shortcut improvements |
+| **Reddit** | Bulk unsave, hide promoted posts, ~~keyboard-driven post navigation~~ (native — do not build) |
+| **YouTube** | ✅ **Shipped** — bulk-remove Watch Later + bulk unlike Liked videos (`src/yt-bulk.js`), keyboard gap-fills for Like/Save/Subscribe/comment (`src/yt-keys.js`). Only the genuine gaps were added; YouTube's large native shortcut set was not rebuilt. |
 | **LinkedIn** | Bulk withdraw pending connection requests, bulk remove connections, hide promoted content |
 
-Platform modules will follow the same conventions as the Instagram implementation:
-- No CSS-class selectors — ARIA roles and visible text only
-- All bulk actions through a shared `queue.js`-equivalent with per-platform caps
-- All tunables (delays, caps, labels) in a platform config block in `src/config.js`
+Platform modules follow the same conventions as the Instagram implementation
+(the YouTube module is the reference for new platforms):
+- No CSS-class selectors — ARIA roles, visible text, and semantic custom-element
+  tag names (`ytd-*` etc.) only
+- All bulk actions through the shared `src/queue.js` (it accepts a function
+  action for DOM-automation platforms) with per-platform caps and daily keys
+- All tunables (delays, caps, labels, keys) in a platform config block in
+  `src/config.js` (see `YT`)
 - `DRY_RUN` applies globally across all platforms
+- Each platform gets its own `content_scripts` entry in `manifest.json`, loaded
+  only on that host
 
 ---
 

@@ -1,7 +1,10 @@
 # Better Web Insta
 
-A personal Chrome extension (Manifest V3) that makes follow-management on
-**instagram.com** faster:
+A personal Chrome extension (Manifest V3) with power-user tools for
+**instagram.com** and **youtube.com** (each site's module loads only on that
+site).
+
+## Instagram
 
 1. **Shift-click instant remove** — hold **Shift** and click a row's
    **Following** button (in any Following list) or **Remove** button (in any
@@ -44,6 +47,26 @@ A personal Chrome extension (Manifest V3) that makes follow-management on
 > web platform** (not code bugs) — story reposting, per-collection unsave, and
 > carousel reorder. See `FEATURE_FEASIBILITY_REPORT.md` for the full analysis
 > and the list of what *is* worth building next (on Instagram and other sites).
+
+## YouTube
+
+1. **Bulk-remove from Watch Later / Liked videos** — on `youtube.com/playlist?list=WL`
+   (or `list=LL`), a **Select** toolbar appears above the playlist. Tap rows to
+   select them (or **Select all**), then **Remove (n)**. Each removal clicks
+   YouTube's own per-row ⋮ → "Remove from …" menu item through the shared
+   throttled queue, with deliberately slow **5–8 s** delays — YouTube processes
+   deletions asynchronously and going faster makes videos reappear. Separate
+   daily budgets per playlist; **Stop** anytime. Toggle with `YT.BULK_PLAYLIST`
+   in `src/config.js`.
+2. **Keyboard shortcut gap-fills** — on watch pages, the shortcuts YouTube's
+   big native set omits: **E** toggles Like, **Shift+E** opens Save-to-playlist,
+   **Shift+U** subscribes, **N** jumps to the comment box. Keys avoid every
+   native binding, never fire while typing, and are remappable in `YT.KEYS`.
+   Toggle with `YT.SHORTCUTS`.
+
+Both are pure DOM automation riding YouTube's own UI (no private API calls).
+The global `DRY_RUN` flag applies: bulk removals log to the console instead of
+clicking.
 
 ## Install (load unpacked)
 

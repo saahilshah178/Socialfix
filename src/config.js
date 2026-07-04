@@ -102,6 +102,72 @@
     // FEATURE_FEASIBILITY_REPORT.md §2.2.)
     STORY_CREATE_TOOLS: true,
 
+    // ---- YouTube (youtube.com) --------------------------------------------
+    // First non-Instagram platform module (PRD "multi-site expansion").
+    // Loaded only on youtube.com (see manifest content_scripts). The global
+    // DRY_RUN above applies here too: bulk removals log instead of clicking.
+    YT: {
+      // Feature toggles.
+      BULK_PLAYLIST: true, // bulk-remove UI on Watch Later / Liked videos
+      SHORTCUTS: true, // keyboard gap-fills on watch pages
+
+      // Bulk-remove throttling. YouTube processes playlist deletions
+      // asynchronously — firing too fast makes items reappear on refresh, so
+      // proven tools sit at 5-8s between removals. Overdoing it earns 429
+      // friction (not bans), but stay conservative anyway.
+      MIN_DELAY_MS: 5000,
+      MAX_DELAY_MS: 8000,
+      SESSION_CAP: 200,
+      DAILY_CAP: 500,
+
+      // The two playlists the bulk UI activates on (?list=<id>), each with its
+      // own remove-menu text and its own daily budget.
+      PLAYLISTS: {
+        WL: {
+          name: "Watch Later",
+          menuItem: "Remove from Watch later",
+          dailyKey: "bwi_daily_wl_remove_",
+        },
+        LL: {
+          name: "Liked videos",
+          menuItem: "Remove from liked videos",
+          dailyKey: "bwi_daily_unlike_yt_",
+        },
+      },
+
+      // Visible-text / aria-label anchors (English, same caveat as LABELS
+      // below). The ⋮ button and menu items are resolved by these — never by
+      // YouTube's class names.
+      LABELS: {
+        actionMenu: "Action menu", // aria-label on a playlist row's ⋮ button
+        moreActions: "More actions", // aria-label on the watch-page overflow ⋯
+        select: "Select",
+        cancelSelect: "Cancel",
+        selectAll: "Select all",
+        remove: "Remove",
+        // Watch-page targets for the keyboard gap-fills. `like` is an
+        // aria-label PREFIX ("like this video along with N other people");
+        // the rest are exact visible text / aria-labels.
+        likePrefix: "like this video",
+        subscribe: "Subscribe",
+        saveMenuItem: "Save",
+        saveAria: "Save to playlist",
+        commentPlaceholder: "Add a comment",
+      },
+
+      // Keyboard gap-fills (watch pages only). YouTube's native map is large
+      // (k/j/l/f/m/c/t/i/0-9/arrows/Shift+N/P, </>, /), so these defaults
+      // deliberately avoid every native binding. Matched against e.key
+      // (lowercased) + shiftKey. Subscribe requires Shift so it can't fire by
+      // accident.
+      KEYS: {
+        like: { key: "e", shift: false }, // toggle Like
+        save: { key: "e", shift: true }, // open Save-to-playlist
+        subscribe: { key: "u", shift: true }, // Subscribe
+        commentFocus: { key: "n", shift: false }, // jump to comment box
+      },
+    },
+
     // Button label text we match on. Instagram's CSS classes are obfuscated
     // and change constantly, but the visible English text is stable. To
     // support another language, swap these for that locale's labels.

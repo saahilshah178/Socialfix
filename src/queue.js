@@ -1,13 +1,19 @@
 // Better Web Insta — throttled bulk-action queue.
-// Single path for "Unfollow all". Enforces randomized delays plus session
-// and daily caps, and stops on Instagram action-blocks. Progress is pushed
-// to a listener so the subsection UI (and popup) can render live status.
+// The single path for ALL bulk actions on every platform. Enforces randomized
+// delays plus session and daily caps, and stops on action-blocks. Progress is
+// pushed to a listener so the feature UIs (and popup) can render live status.
+//
+// Platform-agnostic: on Instagram, `action` is a method name on BWI.api (which
+// ig-api.js defines); on hosts without an API layer (e.g. YouTube DOM
+// automation), `action` is a function — see run() below. BWI.api is therefore
+// resolved lazily, never at load.
 (function () {
   "use strict";
 
   const BWI = (window.BWI = window.BWI || {});
   const cfg = BWI.config;
-  const api = BWI.api;
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   const DEFAULT_DAILY_KEY = "bwi_daily_";
   const todayKey = (prefix = DEFAULT_DAILY_KEY) =>
@@ -73,10 +79,13 @@
       this.stopRequested = true;
     },
 
-    // items: [{ pk, ... }], action: a method name on BWI.api ("unfollow" |
-    // "removeFollower" | "unsave"). opts overrides the throttle/caps so each
-    // action can have its own delays, limits, and daily budget; unset fields
-    // fall back to the conservative unfollow defaults in config.js.
+    // items: [{ pk, ... }], action: either a method name on BWI.api
+    // ("unfollow" | "removeFollower" | "unsave" — Instagram) or an async
+    // FUNCTION (item) => Promise (platforms driven by DOM automation, e.g.
+    // YouTube; the function must honor cfg.DRY_RUN itself). opts overrides the
+    // throttle/caps so each action can have its own delays, limits, and daily
+    // budget; unset fields fall back to the conservative unfollow defaults in
+    // config.js.
     async run(items, action = "unfollow", opts = {}) {
       if (this.running) return;
       this.running = true;
@@ -127,10 +136,13 @@
         });
 
         try {
-          // Pass the whole item as a 2nd arg so actions can read per-item
-          // extras if they need them. Current actions only use item.pk and
-          // ignore the extra arg.
-          await api[action](item.pk, item);
+          // Function actions get the whole item; BWI.api method-name actions
+          // get (pk, item) — the 2nd arg lets actions read per-item extras.
+          if (typeof action === "function") {
+            await action(item);
+          } else {
+            await BWI.api[action](item.pk, item);
+          }
           done++;
           await bumpDailyCount(dailyKey, 1);
           this.emit({
@@ -155,7 +167,7 @@
             return;
           }
           failed++;
-          console.warn("[BWI] action failed for", item.username, err);
+          console.warn("[BWI] action failed for", item.username || item.pk, err);
           this.emit({
             phase: "fail-one",
             current: item,
@@ -168,7 +180,7 @@
 
         // Jittered delay before the next action (skip after the last one).
         if (i < cap - 1 && !this.stopRequested) {
-          await api.sleep(rand(minDelay, maxDelay));
+          await sleep(rand(minDelay, maxDelay));
         }
       }
 

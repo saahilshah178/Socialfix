@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Better Web Insta",
   "version": "2.0.0",
-  "description": "Power-user tools for instagram.com: shift-click unfollow/remove, non-follower + recently-unfollowed subsections, bulk unsave, keyboard story nav, and an enhanced story composer (text + drawing).",
+  "description": "Power-user tools for instagram.com (shift-click unfollow/remove, non-follower + drop-off subsections, bulk unsave, keyboard story nav, enhanced story composer) and youtube.com (bulk-remove Watch Later / Liked videos, keyboard shortcut gap-fills).",
   "permissions": ["storage"],
   "host_permissions": ["https://www.instagram.com/*"],
   "content_scripts": [
@@ -21,6 +21,18 @@
         "src/feature5.js",
         "src/feature7.js",
         "src/feature9.js"
+      ],
+      "css": ["styles.css"]
+    },
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "run_at": "document_idle",
+      "js": [
+        "src/config.js",
+        "src/queue.js",
+        "src/ui.js",
+        "src/yt-bulk.js",
+        "src/yt-keys.js"
       ],
       "css": ["styles.css"]
     }
