@@ -124,16 +124,20 @@
       const data = await xFetch("/1.1/friendships/lookup.json", {
         params: { user_id: batch.map((u) => u.pk).join(",") },
       });
-      const followsBack = new Set();
+      const connsById = new Map();
       (Array.isArray(data) ? data : []).forEach((r) => {
-        const conns = r.connections || [];
-        if (conns.includes("followed_by")) followsBack.add(String(r.id_str || r.id));
+        connsById.set(String(r.id_str || r.id), r.connections || []);
       });
       batch.forEach((u) => {
         // Never surface someone we can't confirm; only list a clean "not
-        // followed_by". (Pending follow-requests to protected accounts show
-        // "following_requested" and are left alone.)
-        if (!followsBack.has(u.pk)) nonFollowers.push(u);
+        // followed_by". Anyone missing from the lookup response (suspended /
+        // deactivated) is skipped, and pending follow-requests to protected
+        // accounts ("following_requested") are left alone.
+        const conns = connsById.get(u.pk);
+        if (!conns) return;
+        if (conns.includes("followed_by")) return;
+        if (conns.includes("following_requested")) return;
+        nonFollowers.push(u);
       });
       if (onProgress) onProgress(Math.min(i + 100, following.length), following.length);
       await sleep(800);

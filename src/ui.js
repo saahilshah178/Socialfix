@@ -268,9 +268,17 @@
     meta.href = `/${u.username}/`;
     meta.target = "_blank";
     meta.rel = "noopener";
-    meta.innerHTML = `<span class="bwi-row__username">${u.username}</span>${
-      u.full_name ? `<span class="bwi-row__name">${u.full_name}</span>` : ""
-    }`;
+    // textContent, never innerHTML — username/full_name are user-supplied.
+    const uname = document.createElement("span");
+    uname.className = "bwi-row__username";
+    uname.textContent = u.username;
+    meta.appendChild(uname);
+    if (u.full_name) {
+      const name = document.createElement("span");
+      name.className = "bwi-row__name";
+      name.textContent = u.full_name;
+      meta.appendChild(name);
+    }
 
     const btn = document.createElement("button");
     btn.className = "bwi-btn bwi-btn--row";
