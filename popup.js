@@ -28,9 +28,14 @@ async function refresh() {
     Math.min(100, Math.round((storyCount / STORY_DAILY_CAP) * 100)) + "%";
 }
 
+// Every host the queue runs on (mirrors manifest.json content_scripts) — the
+// Stop button must reach a bulk run on any of them, not just Instagram.
+const SUPPORTED_TAB =
+  /^https:\/\/(www\.instagram\.com|www\.youtube\.com|x\.com|[^/]*\.reddit\.com|www\.linkedin\.com|www\.tiktok\.com)\//;
+
 document.getElementById("stop").addEventListener("click", async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab || !/^https:\/\/www\.instagram\.com\//.test(tab.url || "")) {
+  if (!tab || !SUPPORTED_TAB.test(tab.url || "")) {
     return;
   }
   try {

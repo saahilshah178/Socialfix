@@ -59,7 +59,15 @@
         }
       }
       // Nothing matched — close the menu we opened so it doesn't linger.
-      document.body.dispatchEvent(new Event("keydown"));
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Escape",
+          code: "Escape",
+          keyCode: 27,
+          which: 27,
+          bubbles: true,
+        })
+      );
     }, 250);
   }
 

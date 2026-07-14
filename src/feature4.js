@@ -119,6 +119,10 @@
     // Re-inject if the grid changed or our toolbar got torn out by a re-render.
     if (g === grid && toolbar && document.contains(toolbar)) return;
 
+    // The grid node was replaced but our old toolbar may have survived the
+    // re-render — remove it so we never show two toolbars.
+    if (toolbar && toolbar.parentNode) toolbar.remove();
+
     grid = g;
     const built = buildToolbar();
     toolbar = built.bar;

@@ -128,8 +128,10 @@
 
       for (let i = 0; i < cap; i++) {
         if (this.stopRequested) {
+          this.running = false;
+          this.stopRequested = false;
           this.emit({ phase: "stopped", reason: "user", total, done, failed });
-          break;
+          return;
         }
 
         const item = items[i];
