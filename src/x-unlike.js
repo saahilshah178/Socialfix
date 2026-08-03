@@ -111,15 +111,26 @@
     sync();
   }
 
+  // Idempotent DOM setters: every write below lands inside our toolbar, which
+  // lives in document.body — the subtree the MutationObserver watches. Writing
+  // unconditionally would re-fire the observer on its own output and spin
+  // forever (this is exactly what froze the Likes page), so only write on change.
+  function setText(el, v) {
+    if (el.textContent !== v) el.textContent = v;
+  }
+  function setDisplay(el, v) {
+    if (el.style.display !== v) el.style.display = v;
+  }
+
   function sync() {
     if (!els) return;
     const n = running ? null : loadedLiked().length;
-    els.stopBtn.style.display = running ? "" : "none";
-    els.unlikeBtn.style.display = running ? "none" : "";
+    setDisplay(els.stopBtn, running ? "" : "none");
+    setDisplay(els.unlikeBtn, running ? "none" : "");
     if (!running && !confirmPending) {
       els.unlikeBtn.disabled = n === 0;
-      els.unlikeBtn.textContent = n ? `Unlike loaded (${n})` : "Nothing loaded";
-      els.label.textContent = "Bulk unlike";
+      setText(els.unlikeBtn, n ? `Unlike loaded (${n})` : "Nothing loaded");
+      setText(els.label, "Bulk unlike");
     }
   }
 
@@ -187,6 +198,11 @@
   // ---- lifecycle (SPA) --------------------------------------------------------
 
   function teardown() {
+    // Stop any in-flight run first: teardown fires when we navigate off /likes,
+    // and the queue would otherwise keep calling unlikeOne — whose global
+    // article[data-testid="tweet"] lookup could match liked tweets on the page
+    // the user navigated to (e.g. Home) and unlike them.
+    if (running) queue.stop();
     if (bar) bar.remove();
     bar = null;
     els = null;
@@ -206,8 +222,24 @@
     build();
   }
 
+  // Coalesce the virtualized timeline's constant mutations into one injection
+  // check per frame, and ignore mutations that come only from our own toolbar
+  // (defense-in-depth on top of the idempotent setters in sync()).
+  let scheduled = false;
+  function schedule() {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      maybeInject();
+    });
+  }
+
   window.addEventListener("popstate", maybeInject);
-  const observer = new MutationObserver(() => maybeInject());
+  const observer = new MutationObserver((muts) => {
+    if (bar && muts.every((m) => bar.contains(m.target))) return;
+    schedule();
+  });
   observer.observe(document.body, { childList: true, subtree: true });
   maybeInject();
 })();

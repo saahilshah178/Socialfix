@@ -174,21 +174,32 @@
     sync();
   }
 
+  // Idempotent setters: every write lands in our toolbar, which sits in
+  // document.body — the subtree the observer watches. Unconditional writes would
+  // re-fire the observer on their own output and spin forever (the same freeze
+  // that hit the Reddit/X toolbars), so only write on change.
+  function setText(el, v) {
+    if (el.textContent !== v) el.textContent = v;
+  }
+  function setDisplay(el, v) {
+    if (el.style.display !== v) el.style.display = v;
+  }
+
   function sync() {
     if (!els) return;
     const def = running ? null : activeTab();
     const n = running || !def ? null : loadedTiles().length;
-    els.stopBtn.style.display = running ? "" : "none";
-    els.goBtn.style.display = running ? "none" : "";
+    setDisplay(els.stopBtn, running ? "" : "none");
+    setDisplay(els.goBtn, running ? "none" : "");
     if (!running && !confirmPending) {
       if (!def) {
         els.goBtn.disabled = true;
-        els.goBtn.textContent = "Open Liked or Favorites";
-        els.label.textContent = "TikTok bulk remove";
+        setText(els.goBtn, "Open Liked or Favorites");
+        setText(els.label, "TikTok bulk remove");
       } else {
         els.goBtn.disabled = n === 0;
-        els.goBtn.textContent = n ? `Remove loaded (${n})` : "Nothing loaded";
-        els.label.textContent = `Bulk remove — ${def.name}`;
+        setText(els.goBtn, n ? `Remove loaded (${n})` : "Nothing loaded");
+        setText(els.label, `Bulk remove — ${def.name}`);
       }
     }
   }
@@ -255,6 +266,10 @@
   // ---- lifecycle --------------------------------------------------------------
 
   function teardown() {
+    // Stop any in-flight run first: teardown fires when we navigate off the
+    // profile, and the queue would otherwise keep calling the removal action —
+    // whose global a[href*="/video/"] lookup could match videos elsewhere.
+    if (running) queue.stop();
     if (bar) bar.remove();
     bar = null;
     els = null;
@@ -274,8 +289,24 @@
     build();
   }
 
+  // Coalesce the profile grid's constant mutations, and ignore mutations that
+  // come only from our own toolbar (defense-in-depth on top of the idempotent
+  // setters in sync()).
+  let scheduled = false;
+  function schedule() {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      maybeInject();
+    });
+  }
+
   window.addEventListener("popstate", maybeInject);
-  const observer = new MutationObserver(() => maybeInject());
+  const observer = new MutationObserver((muts) => {
+    if (bar && muts.every((m) => bar.contains(m.target))) return;
+    schedule();
+  });
   observer.observe(document.body, { childList: true, subtree: true });
   maybeInject();
 })();

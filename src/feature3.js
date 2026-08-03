@@ -51,32 +51,20 @@
     return best || (scroll && scroll.parentElement) || dialog;
   }
 
+  // WIDEN ONLY. We deliberately do NOT set any height on the card or the scroll
+  // container: Instagram's list is virtualized with react-window, which reads
+  // the scroll container's own height to decide how many rows to mount. Forcing
+  // an explicit !important height there (as an earlier version did) broke that
+  // math and blanked the native list. Widening the card is layout-safe — the
+  // native list keeps its own height and simply gets wider — and our injected
+  // panel is independently bounded + internally scrolling (styles.css).
   function applySize(card, scroll) {
     const wPx = Math.min(cfg.MODAL_WIDTH_PX, Math.round(window.innerWidth * 0.95));
-    const hPx = Math.round((window.innerHeight * cfg.MODAL_HEIGHT_VH) / 100);
-
     card.classList.add("bwi-big-card");
     card.style.setProperty("width", wPx + "px", "important");
     card.style.setProperty("max-width", "95vw", "important");
-    card.style.setProperty("height", hPx + "px", "important");
-    card.style.setProperty("max-height", "95vh", "important");
-    card.style.setProperty("display", "flex", "important");
-    card.style.setProperty("flex-direction", "column", "important");
-
-    // Make the scroll list fill the rest of the taller card. flex:1 governs the
-    // real height (so it shrinks to share space with our subsection); the
-    // explicit height is the virtualizer's hint to mount more rows.
-    scroll.classList.add("bwi-big-scroll");
-    const offsetTop =
-      scroll.getBoundingClientRect().top - card.getBoundingClientRect().top;
-    const fill = Math.max(160, hPx - offsetTop - 8);
-    scroll.style.setProperty("flex", "1 1 auto", "important");
-    scroll.style.setProperty("min-height", "0", "important");
-    scroll.style.setProperty("height", fill + "px", "important");
-    scroll.style.setProperty("max-height", "none", "important");
-
-    // Nudge any ResizeObserver/AutoSizer to recompute the visible row window.
-    window.dispatchEvent(new Event("resize"));
+    // scroll is still tagged for potential styling hooks, but we never size it.
+    if (scroll) scroll.classList.add("bwi-big-scroll");
   }
 
   function ensureBig(dialog) {

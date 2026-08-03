@@ -35,7 +35,13 @@
     if (!el) return false;
     const tag = (el.tagName || "").toLowerCase();
     if (tag === "input" || tag === "textarea" || tag === "select") return true;
-    return !!(el.isContentEditable || el.closest("[contenteditable='true']"));
+    // Guard el.closest: a keydown target is normally an Element, but be safe if
+    // it's ever a text node / document (which have no .closest) so we never throw
+    // out of the listener and silently drop the shortcut.
+    return !!(
+      el.isContentEditable ||
+      (el.closest && el.closest("[contenteditable='true']"))
+    );
   }
 
   // The watch page's own metadata block — scoping keeps us off look-alike
@@ -127,12 +133,20 @@
       return;
     }
     comments.scrollIntoView({ block: "center", behavior: "smooth" });
-    // Clicking the "Add a comment…" placeholder opens the real editor.
+    // The real click target is the placeholder CONTAINER (#placeholder-area) —
+    // clicking the inner "Add a comment…" text node alone doesn't open the
+    // editor. Prefer the container; fall back to the text node's clickable
+    // ancestor if YouTube renames the id.
+    const area = comments.querySelector("#placeholder-area");
+    if (area) {
+      area.click();
+      return;
+    }
     const nodes = comments.querySelectorAll("div, span, yt-formatted-string");
     for (const n of nodes) {
       const t = (n.textContent || "").trim();
       if (t.startsWith(L.commentPlaceholder) && t.length < 40) {
-        n.click();
+        (n.closest("#placeholder-area, ytd-comment-simplebox-renderer, button, [role='button']") || n).click();
         return;
       }
     }

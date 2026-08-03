@@ -9,10 +9,15 @@
 // deliberately slow 5-8s delays: YouTube processes deletions asynchronously
 // and firing faster makes items reappear on refresh.
 //
-// Selectors: semantic custom-element TAG names (ytd-playlist-video-renderer,
-// ytd-menu-service-item-renderer — stable for years, unlike class names),
-// aria-labels, and visible menu text from cfg.YT.LABELS. Selection is tracked
-// by videoId (parsed from each row's /watch?v= link), not by DOM node.
+// Selectors: semantic custom-element TAG names, aria-labels, and visible menu
+// text from cfg.YT.LABELS. Selection is tracked by videoId (parsed from each
+// row's /watch?v= link), not by DOM node.
+//
+// Two row shells (2026): Watch Later still renders classic
+// `ytd-playlist-video-renderer` rows whose ⋮ is aria-label "Action menu" and
+// whose menu items are `ytd-menu-service-item-renderer`; Liked videos migrated
+// to `yt-lockup-view-model` rows whose ⋮ is "More actions" and whose menu items
+// are `yt-list-item-view-model`. We detect and drive both.
 (function () {
   "use strict";
 
@@ -25,8 +30,12 @@
 
   if (!YT.BULK_PLAYLIST) return;
 
-  const ROW_TAG = "ytd-playlist-video-renderer";
-  const MENU_ITEM_TAG = "ytd-menu-service-item-renderer";
+  // Classic playlist row OR the newer lockup shell. We only treat an element as
+  // a row if it carries a /watch?v= link, which also filters out any non-video
+  // lockups that might appear elsewhere on the page.
+  const ROW_SEL = "ytd-playlist-video-renderer, yt-lockup-view-model";
+  const MENU_ITEM_SEL =
+    "ytd-menu-service-item-renderer, tp-yt-paper-item, yt-list-item-view-model";
 
   let toolbar = null;
   let els = null; // { selectBtn, selectAllBtn, removeBtn, stopBtn, progress }
@@ -51,7 +60,9 @@
   // ---- row helpers -------------------------------------------------------------
 
   function allRows() {
-    return Array.from(document.querySelectorAll(ROW_TAG));
+    return Array.from(document.querySelectorAll(ROW_SEL)).filter((r) =>
+      r.querySelector('a[href*="watch?v="]')
+    );
   }
 
   function videoIdOfRow(row) {
@@ -87,16 +98,24 @@
       console.log(`[BWI][DRY_RUN] YT remove ${item.pk} via "${menuItemText}" (not clicked)`);
       return;
     }
+    // Never drive menus off the playlist page. ROW_SEL now also matches
+    // yt-lockup-view-model, which is YouTube's generic tile shell on Home/search/
+    // the watch sidebar — so an in-flight run after a mid-run SPA navigation must
+    // not open menus on recommendation tiles.
+    if (!activePlaylist()) throw new Error("no longer on a playlist page");
 
     const row = rowForVideoId(item.pk);
     if (!row) throw new Error("row not found for " + item.pk);
     row.scrollIntoView({ block: "center" });
 
-    // Open the row's ⋮ menu. Exact aria-label first; fall back to the only
-    // button inside the row's menu renderer.
+    // Open the row's ⋮ menu. Classic rows label it "Action menu"; the newer
+    // lockup labels it "More actions". Fall back to any menu-renderer button.
     const menuBtn =
       findByAria(row, L.actionMenu) ||
-      row.querySelector("ytd-menu-renderer button, ytd-menu-renderer [role='button']");
+      findByAria(row, L.moreActions) ||
+      row.querySelector(
+        "ytd-menu-renderer button, ytd-menu-renderer [role='button'], button[aria-label='More actions']"
+      );
     if (!menuBtn) throw new Error("action-menu button not found");
     menuBtn.click();
 
@@ -105,7 +124,7 @@
     let clicked = false;
     for (let tries = 0; tries < 20 && !clicked; tries++) {
       await sleep(120);
-      const items = document.querySelectorAll(MENU_ITEM_TAG + ", tp-yt-paper-item");
+      const items = document.querySelectorAll(MENU_ITEM_SEL);
       for (const el of items) {
         const t = (el.textContent || "").trim().toLowerCase();
         if (t && (t === target || t.includes(target))) {
@@ -152,8 +171,8 @@
       if (!selecting || running) return;
       if (!activePlaylist()) return;
       if (toolbar && toolbar.contains(e.target)) return; // toolbar buttons work normally
-      const row = e.target.closest(ROW_TAG);
-      if (!row) return;
+      const row = e.target.closest(ROW_SEL);
+      if (!row || !row.querySelector('a[href*="watch?v="]')) return;
       e.preventDefault();
       e.stopPropagation();
       const vid = videoIdOfRow(row);
@@ -321,6 +340,10 @@
   // ---- lifecycle (YouTube is a SPA) ----------------------------------------------
 
   function teardown() {
+    // Stop any in-flight run first: teardown fires on yt-navigate-finish (SPA
+    // nav), and the queue would otherwise keep running removeOne on a page that
+    // is no longer a playlist.
+    if (running) queue.stop();
     if (toolbar) toolbar.remove();
     toolbar = null;
     els = null;
@@ -343,11 +366,15 @@
       if (selected.size) reapplyOverlays();
       return;
     }
-    // Anchor above the playlist rows. The list custom element is the stable
-    // container; bail quietly until it exists (page still rendering).
-    const firstRow = document.querySelector(ROW_TAG);
+    // Anchor above the playlist rows. Classic playlists nest rows in
+    // ytd-playlist-video-list-renderer; the lockup layout puts them in a plain
+    // #contents. Bail quietly until a row exists (page still rendering).
+    const firstRow = allRows()[0];
     if (!firstRow) return;
-    const list = firstRow.closest("ytd-playlist-video-list-renderer") || firstRow.parentElement;
+    const list =
+      firstRow.closest("ytd-playlist-video-list-renderer") ||
+      firstRow.closest("#contents") ||
+      firstRow.parentElement;
     if (!list || !list.parentElement) return;
     toolbar = buildToolbar(def);
     list.parentElement.insertBefore(toolbar, list);

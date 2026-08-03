@@ -4,6 +4,12 @@
 > Verdicts below honor adversarial refutation: where a `verify` pass produced a `revisedVerdict`, that revision is the final word.
 > The prime directive: **never greenlight a feature that is impossible for platform reasons** (the emoji-pong / web-bio-link lesson).
 
+> **Status update (2026-08).** This report is a historical record; its feasibility verdicts stand. Since it was written:
+> (a) the **enhanced story composer** (§2.2) was built in its reduced text/drawing scope, then **removed entirely by user request**, along with the story-upload core in `ig-api.js`;
+> (b) the **LinkedIn modules** (§3.15 bulk-withdraw, §3.17 hide-promoted) were built and then **removed by user request** — LinkedIn is no longer a supported host, and the hostility analysis below stands as the do-not-rebuild-casually record;
+> (c) X removed the **v1.1 friends-list endpoints** (`friends/list.json` / `friends/ids.json` now 404), so bulk-unfollow (§3.2) was rebuilt DOM-first — scan loaded rows on your own Following page, click X's own unfollow flow — with only the batched `friendships/lookup.json` follow-back read surviving in `x-api.js`;
+> (d) Instagram removed the REST **`/api/v1/media/{id}/unsave/`** endpoint (404), so unsave moved to the surviving web endpoint **`/api/v1/web/save/{id}/unsave/`**.
+
 ---
 
 ## 1. Executive summary
@@ -65,7 +71,7 @@ These are already partially built in-tree. Framing is **verify/fix** vs **rebuil
 ### 2.2 Enhanced story composer — ⚠️ FRAGILE (confidence: MEDIUM) — *rebuild scope: cut the stickers*
 
 - **Verdict / mechanism:** FRAGILE. **Bimodal.** The composer core is genuinely feasible; the interactive stickers are effectively impossible from a cookie content script.
-- **Status:** Built as `src/feature8.js` + `ig-api.js` `configureToStory`/`configureToStoryApp`, unverified.
+- **Status:** Was built (initially `src/feature8.js`, ultimately shipped as `src/feature9.js` + the `ig-api.js` story-upload core) in the reduced text/drawing scope below, then **removed entirely by user request (2026-08)** — see the status update at the top. The analysis stands as the record of what is and isn't possible.
 - **What WORKS (keep):**
   - **Binary upload:** `rupload_igphoto` two-step upload runs same-origin with `credentials:'include'` + web app-id — this is the exact path the mobile-web PWA's real "Add to story" uses. Reproducible from a content script.
   - **Client-side rasterization:** text + freehand drawing burned into the JPEG before upload — **zero API dependency**, trivially feasible.

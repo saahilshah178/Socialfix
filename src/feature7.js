@@ -115,7 +115,7 @@
       const loadingText = document.createElement("span");
       loadingText.textContent = "Checking who dropped off…";
       loading.appendChild(loadingText);
-      container.parentNode.insertBefore(loading, container);
+      ui.insertAboveList(loading, container);
 
       const prev = await getStored(snapKey());
       let logEntries = (await getStored(logKey())) || [];

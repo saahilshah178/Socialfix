@@ -1,14 +1,17 @@
-// Better Web Insta — X (Twitter) private web API helpers.
-// Used by the bulk-unfollow feature (x-unfollow.js). All calls are same-origin
-// to x.com's internal v1.1 REST API (/i/api/1.1/...), so the session cookies
-// ride along with credentials:'include' — no login/auth code. X's web client
-// authenticates these with a static public Bearer token (in every page load)
-// plus the ct0 cookie echoed as x-csrf-token; that's all reproduced here.
+// Better Web Insta — X (Twitter) private web API helper (follow-back check).
+// Used by the bulk-unfollow feature (x-unfollow.js) for ONE thing: checking
+// which of your following follow you back, via friendships/lookup.json. That
+// v1.1 endpoint is same-origin to x.com's internal API (/i/api/1.1/...), so the
+// session cookies ride along with credentials:'include' — no login/auth code.
+// X's web client authenticates it with a static public Bearer token (present in
+// every page load) plus the ct0 cookie echoed as x-csrf-token.
 //
-// The churn-prone bits (Bearer token, API host) live in cfg.X. v1.1 does NOT
-// validate x-client-transaction-id, so — unlike GraphQL — we don't need to
-// reproduce it. Bulk UNLIKE deliberately uses no API (x-unlike.js clicks the
-// native heart), so there are no GraphQL query-ids to maintain here.
+// NOTE (2026): X removed the v1.1 friends-list endpoints (friends/list.json and
+// friends/ids.json now 404), so the following LIST and the unfollow ACTION are
+// done purely in the DOM (x-unfollow.js), matching the x-unlike/tiktok
+// philosophy. friendships/lookup.json is the one v1.1 read that survives, so we
+// keep it here for the cheap batched follow-back check. The churn-prone bits
+// (Bearer token, API host) live in cfg.X.
 (function () {
   "use strict";
 
@@ -44,8 +47,7 @@
   }
 
   // Same-origin call to the v1.1 REST API. `path` is appended to cfg.X.API_HOST
-  // (e.g. "/1.1/friends/list.json"). GET params via opts.params; POST form body
-  // via opts.form.
+  // (e.g. "/1.1/friendships/lookup.json"). GET params via opts.params.
   async function xFetch(path, opts = {}) {
     const csrf = getCsrf();
     if (!csrf) throw new XApiError("no ct0 cookie (not logged in?)", 0, null);
@@ -63,13 +65,8 @@
       "x-twitter-active-user": "yes",
       "x-twitter-client-language": "en",
     };
-    const init = { method: opts.method || "GET", headers, credentials: "include" };
-    if (opts.form) {
-      headers["content-type"] = "application/x-www-form-urlencoded";
-      init.body = new URLSearchParams(opts.form).toString();
-    }
 
-    const res = await fetch(url, init);
+    const res = await fetch(url, { method: "GET", headers, credentials: "include" });
     let data = null;
     const text = await res.text();
     try {
@@ -83,40 +80,10 @@
     return data;
   }
 
-  function pickUser(u) {
-    return {
-      pk: String(u.id_str || u.id),
-      username: u.screen_name || "",
-      full_name: u.name || "",
-      // profile_image_url_https is the tiny "_normal" variant; bump to a bigger
-      // one for a crisp avatar.
-      profile_pic_url: (u.profile_image_url_https || "").replace("_normal", "_bigger"),
-    };
-  }
-
-  // Paginate the authenticating user's full following list (friends/list.json).
-  // GUARANTEE (mirrors ig-api): returns a COMPLETE list or throws — a partial
-  // read never silently yields a truncated diff.
-  async function fetchAllFollowing(onProgress) {
-    const out = [];
-    let cursor = "-1";
-    for (let page = 0; page < 400; page++) {
-      const data = await xFetch("/1.1/friends/list.json", {
-        params: { count: "200", cursor, skip_status: "true", include_user_entities: "false" },
-      });
-      (data.users || []).forEach((u) => out.push(pickUser(u)));
-      if (onProgress) onProgress(out.length);
-      cursor = data.next_cursor_str != null ? String(data.next_cursor_str) : "0";
-      if (cursor === "0" || cursor === "") return out; // clean end
-      await sleep(1200); // friends/list is ~15 req/15min — pace the reads
-    }
-    throw new XApiError("following list did not reach end (cursor ceiling hit)", 0, null);
-  }
-
-  // Given the full following list, flag who doesn't follow back using batched
-  // friendships/lookup.json (100 ids/call → "followed_by" in connections means
-  // they follow you). Avoids paging the entire follower list. Returns the
-  // non-follower subset of `following` (same user shape).
+  // Given a following list (array of {pk, ...}), flag who doesn't follow back
+  // using batched friendships/lookup.json (100 ids/call → "followed_by" in the
+  // connections array means they follow you). Returns the non-follower subset
+  // (same objects as the input, so DOM-scanned display fields are preserved).
   async function computeNonFollowers(following, onProgress) {
     const nonFollowers = [];
     for (let i = 0; i < following.length; i += 100) {
@@ -145,25 +112,11 @@
     return nonFollowers;
   }
 
-  // Unfollow one account (friendships/destroy.json). Honors DRY_RUN.
-  async function destroyFollow(userId) {
-    if (cfg.DRY_RUN) {
-      console.log(`[BWI][DRY_RUN] X unfollow ${userId} (not sent)`);
-      return { dry_run: true };
-    }
-    return xFetch("/1.1/friendships/destroy.json", {
-      method: "POST",
-      form: { user_id: String(userId) },
-    });
-  }
-
   BWI.xApi = {
     getCookie,
     getCsrf,
     getOwnUserId,
-    fetchAllFollowing,
     computeNonFollowers,
-    destroyFollow,
     sleep,
     XApiError,
   };

@@ -17,6 +17,12 @@
 
   const TILE_SEL =
     'a[href*="/p/"], a[href*="/reel/"], a[href*="/tv/"]';
+  // Same selector, but each alternative scoped to <main> (a plain
+  // "main " + TILE_SEL prefix would only scope the FIRST alternative, letting
+  // off-grid reel/tv links leak in and throw off the grid walk-up).
+  const MAIN_TILE_SEL = TILE_SEL.split(",")
+    .map((s) => "main " + s.trim())
+    .join(", ");
 
   let ownUsername = null;
 
@@ -56,8 +62,8 @@
 
   // The smallest ancestor that contains every saved-post tile = the grid.
   function findGrid() {
-    const anchors = document.querySelectorAll("main " + TILE_SEL);
-    if (anchors.length < 2) return null;
+    const anchors = document.querySelectorAll(MAIN_TILE_SEL);
+    if (anchors.length < 1) return null;
     let el = anchors[0].parentElement;
     while (el && el !== document.body) {
       if (el.querySelectorAll(TILE_SEL).length >= anchors.length) return el;
@@ -65,6 +71,19 @@
     }
     return null;
   }
+
+  // Instagram's Saved page has two shapes: the collections INDEX
+  // (/<you>/saved/) whose tiles are collection folders (links to
+  // /<you>/saved/<collection>/, no /p/ posts), and a specific collection or
+  // "All posts" (/<you>/saved/all-posts/) which shows the actual saved-post
+  // grid. Bulk unsave only has posts to act on in the latter, so on the bare
+  // index we show a one-time hint instead of a dead toolbar.
+  function onCollectionsIndex() {
+    if (!ownUsername) return false;
+    const p = location.pathname.toLowerCase().replace(/\/+$/, "");
+    return p === `/${ownUsername.toLowerCase()}/saved`;
+  }
+  let indexHintShown = false;
 
   function tileAnchors() {
     return grid ? Array.from(grid.querySelectorAll(TILE_SEL)) : [];
@@ -303,6 +322,9 @@
         finishRun(
           `Done — unsaved ${s.done}${s.failed ? `, ${s.failed} failed` : ""}.`
         );
+        if (s.done === 0 && s.failed > 0) {
+          ui.toast("All unsaves failed — Instagram may have changed the unsave API");
+        }
       }
     });
 
@@ -327,6 +349,16 @@
   function maybeInject() {
     if (!isOwnSavedPath()) {
       teardown();
+      return;
+    }
+    // On the bare collections index there's no post grid to act on — point the
+    // user at "All posts" (or a collection) once, rather than sitting silent.
+    if (onCollectionsIndex() && !findGrid()) {
+      teardown();
+      if (!indexHintShown) {
+        indexHintShown = true;
+        ui.toast('Open "All posts" (or a collection) to bulk-unsave saved posts');
+      }
       return;
     }
     ensureToolbar();

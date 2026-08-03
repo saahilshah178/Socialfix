@@ -37,11 +37,15 @@
     return /\/saved\/?$/.test(location.pathname) || location.pathname === "/prefs/saved";
   }
 
-  // Pierce shadow roots (new Reddit is web components).
+  // Pierce shadow roots (new Reddit is web components). Only custom elements
+  // (hyphenated tag names) can host a shadow root, so we skip the shadowRoot
+  // probe on the thousands of plain elements a query returns.
   function deepQueryAll(selector, root = document, out = []) {
     root.querySelectorAll(selector).forEach((el) => out.push(el));
     root.querySelectorAll("*").forEach((el) => {
-      if (el.shadowRoot) deepQueryAll(selector, el.shadowRoot, out);
+      if (el.tagName.includes("-") && el.shadowRoot) {
+        deepQueryAll(selector, el.shadowRoot, out);
+      }
     });
     return out;
   }
@@ -65,7 +69,11 @@
         }
       });
     } else {
-      deepQueryAll("shreddit-post").forEach((p) => {
+      // Prefer a plain light-DOM query (cheap); only fall back to the
+      // shadow-piercing walk if shreddit renders posts inside shadow roots.
+      const light = document.querySelectorAll("shreddit-post");
+      const posts = light.length ? Array.from(light) : deepQueryAll("shreddit-post");
+      posts.forEach((p) => {
         const fn = p.id || p.getAttribute("id") || p.getAttribute("post-id");
         if (fn && !seen.has(fn)) {
           seen.add(fn);
@@ -152,15 +160,27 @@
     sync();
   }
 
+  // Only write to the DOM when a value actually changes. Every textContent /
+  // style write here lands inside our toolbar, which sits in document.body —
+  // the same subtree the MutationObserver watches. An unconditional write would
+  // therefore re-fire the observer on its own output and spin forever, so all
+  // writes go through these idempotent setters.
+  function setText(el, v) {
+    if (el.textContent !== v) el.textContent = v;
+  }
+  function setDisplay(el, v) {
+    if (el.style.display !== v) el.style.display = v;
+  }
+
   function sync() {
     if (!els) return;
     const n = running ? null : loadedFullnames().length;
-    els.stopBtn.style.display = running ? "" : "none";
-    els.unsaveBtn.style.display = running ? "none" : "";
+    setDisplay(els.stopBtn, running ? "" : "none");
+    setDisplay(els.unsaveBtn, running ? "none" : "");
     if (!running && !confirmPending) {
       els.unsaveBtn.disabled = n === 0;
-      els.unsaveBtn.textContent = n ? `Unsave loaded (${n})` : "Nothing loaded";
-      els.label.textContent = "Bulk unsave";
+      setText(els.unsaveBtn, n ? `Unsave loaded (${n})` : "Nothing loaded");
+      setText(els.label, "Bulk unsave");
     }
   }
 
@@ -243,8 +263,24 @@
     build();
   }
 
+  // Coalesce bursts of mutations into one injection check per frame-ish, and
+  // ignore mutations that originate entirely inside our own toolbar (belt-and-
+  // braces on top of the idempotent setters in sync()).
+  let scheduled = false;
+  function schedule() {
+    if (scheduled) return;
+    scheduled = true;
+    setTimeout(() => {
+      scheduled = false;
+      maybeInject();
+    }, 250);
+  }
+
   window.addEventListener("popstate", maybeInject);
-  const observer = new MutationObserver(() => maybeInject());
+  const observer = new MutationObserver((muts) => {
+    if (bar && muts.every((m) => bar.contains(m.target))) return;
+    schedule();
+  });
   observer.observe(document.body, { childList: true, subtree: true });
   maybeInject();
 })();
