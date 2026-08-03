@@ -264,7 +264,7 @@
         onStop: () => handlers.onStop(),
         onRefresh: () => handlers.onRefresh(),
       });
-      container.parentNode.insertBefore(panel.root, container);
+      ui.insertAboveList(panel.root, container);
 
       let nonFollowers;
       try {

@@ -37,12 +37,17 @@
     // it up only if Instagram starts throttling the list reads.
     PAGE_DELAY_MS: 0,
 
-    // Feature 3: enlarge Instagram's own Followers/Following modals so there's
-    // room for both the native list and our injected subsection. Set to false
-    // to leave Instagram's modals at their default size.
-    BIGGER_MODALS: true,
-    MODAL_WIDTH_PX: 680, // target width of the enlarged modal card
-    MODAL_HEIGHT_VH: 85, // target height as a percentage of viewport height
+    // Feature 3: widen Instagram's own Followers/Following modals so there's a
+    // little more room for both the native list and our injected subsection.
+    // DEFAULT OFF: Instagram's 2026 modal virtualizes its list with react-window,
+    // and forcing an explicit height on that scroll container broke rendering
+    // (the native list went blank). feature3 now only WIDENS the card (never
+    // touches the list height), but it ships off — our panel is a bounded,
+    // internally-scrolling section that already fits the native modal. Set true
+    // to opt back into the wider card.
+    BIGGER_MODALS: false,
+    MODAL_WIDTH_PX: 560, // target width of the widened modal card
+    MODAL_HEIGHT_VH: 85, // (retained for posterity; height is no longer forced)
 
     // Feature 5: keyboard story navigation. While viewing a story, H jumps to
     // the PREVIOUS user's story and L jumps to the NEXT user's story (skipping
@@ -80,27 +85,6 @@
     // last snapshot (and the snapshot was non-trivial), distrust it — don't diff
     // and don't overwrite the snapshot.
     UNFOLLOWERS_MIN_TRUST_RATIO: 0.6,
-
-    // Story upload core (Feature 9 composer). The WEB story-create flow posts a
-    // PLAIN urlencoded configure body (NOT signed_body) to
-    // /create/configure_to_story/ — the exact path the mobile-web PWA's own
-    // "Add to story" uses, reproducible from a cookie-authed content script.
-    // Stories are high-signal, so the daily cap is deliberately low.
-    STORY: {
-      RUPLOAD_HOST: "https://www.instagram.com",
-      CONFIGURE_PATH_WEB: "/create/configure_to_story/",
-      CANVAS_W: 1080,
-      CANVAS_H: 1920,
-      DAILY_KEY: "bwi_daily_story_",
-      DAILY_CAP: 20,
-    },
-
-    // Feature 9: enhanced story-creation composer — text + freehand drawing +
-    // media fit/fill, rasterized into the JPEG and uploaded via the STORY core
-    // above. (Interactive link/poll stickers were removed: they're silently
-    // dropped by the web configure endpoint — mobile-app-only. See
-    // FEATURE_FEASIBILITY_REPORT.md §2.2.)
-    STORY_CREATE_TOOLS: true,
 
     // ---- YouTube (youtube.com) --------------------------------------------
     // First non-Instagram platform module (PRD "multi-site expansion").
@@ -218,7 +202,8 @@
         premiumNagAria: "Subscribe to Premium", // aria-label on the upsell aside
         followingTab: "Following", // Home tab text
         latestSort: ["Latest", "Recent"], // chronological sort option text
-        unfollowConfirm: "Unfollow", // (reserved) confirm-dialog button text
+        unfollowConfirm: "Unfollow", // confirm-sheet button text (bulk unfollow)
+        followsYouBadge: "Follows you", // per-row badge = they follow you back
       },
 
       // Keyboard actions on the HOVERED tweet (whichever article the mouse is
@@ -256,32 +241,6 @@
         // Promoted-post markers. Reddit's 2026 ad policy mandates a visible,
         // non-removable "Promoted" label — that's the stable hook.
         promotedMarkers: ["promoted", "Promoted"],
-      },
-    },
-
-    // ---- LinkedIn (linkedin.com) ------------------------------------------
-    // Most automation-hostile host: conservative caps, human-like pacing, and
-    // hard stop on any restriction/CAPTCHA banner. DRY_RUN-first is wise.
-    LINKEDIN: {
-      WITHDRAW_INVITES: true, // bulk-withdraw sent invitations
-      HIDE_PROMOTED: true, // read-only promoted filter (fragile, best-effort)
-
-      // Withdrawing your own stale invites is low-provocation, but a burst of
-      // rapid clicks is exactly what LinkedIn flags. Keep it slow and low.
-      WITHDRAW: {
-        MIN_DELAY_MS: 3000,
-        MAX_DELAY_MS: 7000,
-        SESSION_CAP: 40,
-        DAILY_CAP: 100,
-        DAILY_KEY: "bwi_daily_withdraw_li_",
-      },
-
-      LABELS: {
-        withdraw: "Withdraw", // button + inline-confirm popover text
-        // Interstitial/restriction words that must halt any run immediately.
-        restrictionMarkers: ["unusual activity", "restricted", "verify you", "are you a human", "captcha"],
-        // "Promoted" label variants (LinkedIn actively obfuscates/localizes it).
-        promotedMarkers: ["Promoted", "Promoted by"],
       },
     },
 
@@ -340,9 +299,6 @@
       // used only if the URL-shape lookup for adjacent users finds nothing.
       storyPrev: "Previous",
       storyNext: "Next",
-      // Feature 9 (composer): visible strings for our injected controls.
-      enhancedStory: "Enhanced story",
-      postStory: "Post story",
     },
   };
 })();

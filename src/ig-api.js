@@ -1,8 +1,7 @@
 // Better Web Insta — Instagram private web API helpers.
 // Shared by Feature 2 (non-follower subsection + bulk unfollow), Feature 4
-// (bulk unsave), Feature 7 (see-who-unfollowed, read-only), and Feature 9
-// (story composer upload/configure). All calls are same-origin to
-// www.instagram.com, so cookies ride along automatically with
+// (bulk unsave), and Feature 7 (see-who-unfollowed, read-only). All calls are
+// same-origin to www.instagram.com, so cookies ride along automatically with
 // credentials:'include' — no login handling needed.
 (function () {
   "use strict";
@@ -60,9 +59,7 @@
       opts.headers || {}
     );
 
-    // opts.absolute lets callers pass a full URL (e.g. the rupload_igphoto
-    // upload host) instead of a path appended to the www origin.
-    const url = opts.absolute ? path : ORIGIN + path;
+    const url = ORIGIN + path;
     const res = await fetch(url, {
       method: opts.method || "GET",
       headers,
@@ -146,6 +143,27 @@
 
   // Resolve and cache the logged-in user's own username (needed to confirm
   // a Following modal belongs to *your* profile).
+  // Scrape the logged-in username from the page as a last resort, so a rejected
+  // /users/{id}/info/ (which Instagram has started 400'ing for some web
+  // sessions) doesn't silently disable Features 2/4/7. CRITICAL: scope this to
+  // navigation landmarks only. Instagram's own-profile link ("/<username>/" with
+  // a "profile picture" avatar) shares its exact shape with every feed-post
+  // header and suggested-user card, so a document-wide scan would happily return
+  // a STRANGER'S username. We look only inside <nav>/[role=navigation]/tablist.
+  function scrapeOwnUsername() {
+    const roots = document.querySelectorAll('nav, [role="navigation"], [role="tablist"]');
+    for (const root of roots) {
+      const imgs = root.querySelectorAll('img[alt*="profile picture" i]');
+      for (const img of imgs) {
+        const a = img.closest('a[href^="/"]');
+        if (!a) continue;
+        const segs = (a.getAttribute("href") || "").split("/").filter(Boolean);
+        if (segs.length === 1 && /^[A-Za-z0-9._]+$/.test(segs[0])) return segs[0];
+      }
+    }
+    return null;
+  }
+
   async function getOwnUsername() {
     const ownId = getOwnUserId();
     if (!ownId) return null;
@@ -156,12 +174,28 @@
     } catch (_) {
       /* storage may be unavailable in odd contexts; fall through */
     }
-    const data = await igFetch(`/api/v1/users/${ownId}/info/`);
-    const username = data && data.user && data.user.username;
-    if (username) {
+    let username = null;
+    let fromApi = false;
+    try {
+      const data = await igFetch(`/api/v1/users/${ownId}/info/`);
+      username = (data && data.user && data.user.username) || null;
+      fromApi = !!username;
+    } catch (err) {
+      // Don't let a single rejected endpoint silently kill the features — log it
+      // and fall back to scraping the page.
+      console.warn("[BWI] getOwnUsername: /users/info/ failed", err && err.status, err && err.body);
+    }
+    if (!username) username = scrapeOwnUsername();
+    // Only PERSIST an API-confirmed username. A scraped value is best-effort and
+    // could be wrong; caching a wrong value would make it win forever (the
+    // cache-first read above), permanently mis-targeting the features. Scraped
+    // values are used for this page load only.
+    if (username && fromApi) {
       try {
         await chrome.storage.local.set({ [cacheKey]: username });
       } catch (_) {}
+    } else if (!username) {
+      console.warn("[BWI] getOwnUsername: could not resolve own username (API + DOM both failed)");
     }
     return username || null;
   }
@@ -207,75 +241,14 @@
       console.log(`[BWI][DRY_RUN] unsave ${mediaId} (not sent)`);
       return { dry_run: true, status: "ok" };
     }
-    return igFetch(`/api/v1/media/${mediaId}/unsave/`, {
+    // 2026: Instagram removed the app-tier /api/v1/media/{id}/unsave/ endpoint
+    // (now 404) — the surviving web path is /api/v1/web/save/{id}/unsave/, the
+    // same one the web client's own bookmark toggle hits. Verified live with a
+    // net-zero unsave→save round-trip (both 200 {status:"ok"}).
+    return igFetch(`/api/v1/web/save/${mediaId}/unsave/`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: "",
-    });
-  }
-
-  // ---- Story upload core (Feature 9 composer) -----------------------------
-  // Two-step: rupload_igphoto (binary) then configure. The WEB story-create
-  // flow posts a PLAIN urlencoded body to /create/configure_to_story/ — the
-  // same path the mobile-web PWA's own "Add to story" uses, reproducible from a
-  // cookie-authed content script.
-
-  // rupload_igphoto — upload JPEG bytes; returns the upload_id string.
-  async function ruploadPhoto(bytes, dims) {
-    const uploadId = String(Date.now());
-    const name = "fb_uploader_" + uploadId;
-    const params = {
-      media_type: 1,
-      upload_id: uploadId,
-      upload_media_height: (dims && dims.height) || cfg.STORY.CANVAS_H,
-      upload_media_width: (dims && dims.width) || cfg.STORY.CANVAS_W,
-    };
-    const len = bytes.byteLength != null ? bytes.byteLength : bytes.size;
-    if (cfg.DRY_RUN) {
-      console.log(
-        "[BWI][DRY_RUN] rupload_igphoto (not sent)",
-        name,
-        params,
-        "bytes:",
-        len
-      );
-      return uploadId;
-    }
-    await igFetch(cfg.STORY.RUPLOAD_HOST + "/rupload_igphoto/" + name, {
-      absolute: true,
-      method: "POST",
-      headers: {
-        "X-Entity-Name": name,
-        "X-Entity-Length": String(len),
-        Offset: "0",
-        "X-Instagram-Rupload-Params": JSON.stringify(params),
-        "X-Entity-Type": "image/jpeg",
-        "Content-Type": "application/octet-stream",
-      },
-      body: bytes,
-    });
-    return uploadId;
-  }
-
-  // Configure an uploaded photo as a story — WEB plain-form path. The composer
-  // burns all its content (text + freehand drawing) into the JPEG before
-  // upload, so the body is just upload_id + empties.
-  async function configureToStory({ uploadId, caption = "" } = {}) {
-    const form = {
-      upload_id: uploadId,
-      caption: caption || "",
-      usertags: "",
-      custom_accessibility_caption: "",
-      retry_timeout: "",
-    };
-    if (cfg.DRY_RUN) {
-      console.log("[BWI][DRY_RUN] configure_to_story (not sent)", form);
-      return { dry_run: true, status: "ok" };
-    }
-    return igFetch(cfg.STORY.CONFIGURE_PATH_WEB, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams(form).toString(),
     });
   }
 
@@ -290,8 +263,6 @@
     removeFollower,
     shortcodeToMediaId,
     unsave,
-    ruploadPhoto,
-    configureToStory,
     sleep,
     IgApiError,
   };

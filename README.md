@@ -1,8 +1,8 @@
 # Better Web Insta (Socialfix)
 
 A personal, unpacked **Manifest V3** Chrome extension that adds the power-user
-tools six major social sites leave out of their web clients — bulk
-unfollow/unlike/unsave/withdraw, feed cleanup, promoted-content filters, and
+tools five major social sites leave out of their web clients — bulk
+unfollow/unlike/unsave, feed cleanup, promoted-content filters, and
 the keyboard shortcuts that should have shipped by default.
 
 Every mutating action runs through **one shared, throttled queue** with
@@ -11,7 +11,7 @@ each platform's safe rate limits. There is **no build step, no backend, and no
 stored credentials** — it's vanilla JS loaded as content scripts that reuse
 your existing logged-in session.
 
-**Supported sites:** Instagram · YouTube · X (Twitter) · Reddit · LinkedIn · TikTok
+**Supported sites:** Instagram · YouTube · X (Twitter) · Reddit · TikTok
 *(each site's module loads only on that host).*
 
 ---
@@ -26,18 +26,15 @@ your existing logged-in session.
 | | Bulk unsave on the Saved page (multi-select) | Private API + queue |
 | | Keyboard story navigation (`H` / `L` between users) | DOM |
 | | See who dropped off your followers | Private API (read-only) |
-| | Enhanced story composer (text + drawing + fit/fill) | Private write API + queue |
 | **YouTube** | Bulk-remove Watch Later / Liked videos | DOM automation + queue |
 | | Keyboard gap-fills (`E`, `Shift+E`, `Shift+U`, `N`) | DOM |
 | **X (Twitter)** | Bulk unlike your Likes | DOM + queue |
-| | Unfollow people who don't follow you back | Private API + queue |
+| | Unfollow people who don't follow you back | DOM + API follow-back check + queue |
 | | Force the chronological Following feed | DOM (read-only) |
 | | Hide promoted content | DOM (read-only) |
 | | Keyboard shortcuts on the hovered tweet | DOM |
 | **Reddit** | Bulk unsave | DOM + queue |
 | | Hide promoted posts | DOM (read-only) |
-| **LinkedIn** | Bulk-withdraw sent invitations | DOM + queue |
-| | Hide promoted content | DOM (read-only) |
 | **TikTok** | Bulk remove from Liked / Favorites | DOM + queue |
 
 Every toggle lives in `src/config.js`. The global `DRY_RUN` flag turns every
@@ -55,14 +52,21 @@ mutating action into a console log instead of a real write.
    Following list and a panel appears at the top showing everyone you follow who
    doesn't follow you back. Each has an instant **Unfollow** button, plus an
    **Unfollow all** button (throttled through the queue).
-3. **Bigger Followers/Following modals** — the list modals are widened and
-   heightened so the native list and the injected subsections both fit
-   comfortably. Toggle with `BIGGER_MODALS` in `src/config.js`.
+3. **Bigger Followers/Following modals** — optionally widens the list modals so
+   the native list and the injected subsections both fit comfortably. Widen-only
+   (forcing a height on Instagram's virtualized list broke its rendering) and
+   **off by default** — the injected panels are compact, internally-scrolling
+   sections that already fit the native modal. Opt in with `BIGGER_MODALS` in
+   `src/config.js`.
 4. **Bulk unsave on the Saved page** — on your own Saved page, click **Select**
    to enter an inline multi-select mode over the post grid, tap the tiles you
    want, then **Unsave (n)** to remove them all through the throttled queue.
    Selection is tracked by post shortcode, so it survives the virtualized grid
-   recycling nodes as you scroll.
+   recycling nodes as you scroll. Works inside **All posts**
+   (`/<you>/saved/all-posts/`) or any collection; the bare `/<you>/saved/`
+   collections index has no post grid, so a one-time hint points you to
+   "All posts". (Removal is always a full unsave — per-collection removal is
+   mobile-app-only.)
 5. **Keyboard story navigation** — while viewing a story, press **H** to jump to
    the **previous** user's story and **L** to jump to the **next** user's story.
    Unlike the arrow keys (which step one frame at a time), `H`/`L` skip any
@@ -75,21 +79,13 @@ mutating action into a console log instead of a real write.
    a partial/rate-limited read. Labeling is honest: a drop-off can be a real
    unfollow *or* a deactivated / banned / blocked / went-private account, so it
    never claims "unfollowed" as fact. Toggle with `SEE_UNFOLLOWERS`.
-7. **Enhanced story composer** — the **＋ Enhanced story** button opens a canvas
-   composer with movable **text**, freehand **drawing**, and **fit/fill**
-   background control. Everything is rasterized into the image and posted through
-   the private story-upload API, with its own low daily budget. Toggle with
-   `STORY_CREATE_TOOLS`.
 
-> ⚠️ The story composer drives Instagram's undocumented private **write**
-> endpoint. **Set `DRY_RUN: true` in `src/config.js` and confirm the logged
-> payload first** before trusting the live call.
->
 > Some once-planned features were removed because they're **impossible on the
 > web platform** (not code bugs) — story reposting, per-collection unsave,
 > carousel reorder, bio-link editing, and interactive link/poll story stickers.
-> See `FEATURE_FEASIBILITY_REPORT.md` for the full analysis and what *is* worth
-> building next.
+> See `FEATURE_FEASIBILITY_REPORT.md` for the full analysis. The **enhanced
+> story composer** (text/drawing stories) shipped for a while and was removed
+> by user request (2026-08).
 
 ## YouTube
 
@@ -101,10 +97,16 @@ mutating action into a console log instead of a real write.
    YouTube processes deletions asynchronously and going faster makes videos
    reappear. Separate daily budgets per playlist; **Stop** anytime. Toggle with
    `YT.BULK_PLAYLIST`.
-2. **Keyboard shortcut gap-fills** — on watch pages, the shortcuts YouTube's big
-   native set omits: **E** toggles Like, **Shift+E** opens Save-to-playlist,
-   **Shift+U** subscribes, **N** jumps to the comment box. Keys avoid every
-   native binding, never fire while typing, and are remappable in `YT.KEYS`.
+2. **Keyboard shortcut gap-fills** — YouTube already ships a large native
+   shortcut set (`k`/`j`/`l` play-pause-seek, `f` fullscreen, `m` mute, `c`
+   captions, arrow keys, `0–9` seek-to-percent, `Shift+N`/`Shift+P`
+   next/previous video, and more), but has **no shortcut at all** for four
+   everyday actions. On watch pages this adds exactly those four — and nothing
+   that overlaps a native key: **E** toggles Like on the current video,
+   **Shift+E** opens the Save-to-playlist dialog, **Shift+U** subscribes to the
+   channel, and **N** jumps to and focuses the comment box. They never fire
+   while you're typing in a text field, and are remappable in `YT.KEYS`. That's
+   the whole feature — it fills the gaps YouTube's own shortcut set leaves.
    Toggle with `YT.SHORTCUTS`.
 
 Both are pure DOM automation riding YouTube's own UI (no private API calls).
@@ -117,11 +119,14 @@ Both are pure DOM automation riding YouTube's own UI (no private API calls).
    by clicking each native heart through the queue (1.5–3.5 s apart); scroll to
    load more and run again. Two-click confirm, **Stop** anytime. Toggle with
    `X.BULK_UNLIKE`.
-2. **Unfollow people who don't follow you back** — a floating **Non-followers**
-   button opens a panel; **Scan** paginates your following and checks follow-back
-   in batches, then lists everyone who doesn't follow you. Unfollow individually
-   or **Unfollow all**, queued with conservative X-specific limits. Toggle with
-   `X.BULK_UNFOLLOW`.
+2. **Unfollow people who don't follow you back** — on your own **Following**
+   page (`x.com/<you>/following`), a floating **Non-followers** button opens a
+   panel; **Scan** reads the currently-loaded rows from the DOM, checks
+   follow-back in batches (the one surviving v1.1 API read), and lists the
+   non-followers among them. Unfollow individually or **Unfollow all** — each
+   unfollow clicks X's own Following button and confirmation, queued with
+   conservative X-specific limits. Like bulk unlike, it works on **loaded
+   rows**: scroll to load more, then rescan. Toggle with `X.BULK_UNFOLLOW`.
 3. **Chronological Following feed** — on Home, auto-switches from the algorithmic
    "For You" tab to **Following** (and tries the Latest/Recent sort), once per
    visit so it won't fight you. Toggle with `X.CHRONO_FEED`.
@@ -131,10 +136,12 @@ Both are pure DOM automation riding YouTube's own UI (no private API calls).
    keys need keyboard focus): **E** like/unlike, **Shift+R** reply, **Shift+D**
    open full-res photo(s), **Shift+C** copy link. Toggle with `X.SHORTCUTS`.
 
-Bulk unlike/unfollow use the private web API (same-origin, cookie-authed via the
-public web Bearer token — no per-user secret) through `queue.js` with
-X-specific caps and their own daily budgets. Feed, hide, and shortcuts are pure
-DOM (no API, no writes).
+Bulk unlike and bulk unfollow are DOM-driven — they click X's own buttons —
+through `queue.js` with X-specific caps and their own daily budgets. The only
+private-API call left is the read-only follow-back check (same-origin,
+cookie-authed via the public web Bearer token — no per-user secret); X removed
+its v1.1 friends-list endpoints in 2026, which is why the scan is DOM-based.
+Feed, hide, and shortcuts are pure DOM (no API, no writes).
 
 ## Reddit
 
@@ -145,19 +152,6 @@ DOM (no API, no writes).
 2. **Hide promoted posts** — read-only filter using Reddit's mandated "Promoted"
    label and the `shreddit-ad-post` element. Toggle with `REDDIT.HIDE_PROMOTED`.
 
-## LinkedIn
-
-1. **Bulk-withdraw sent invitations** — on
-   **linkedin.com/mynetwork/invitation-manage/sent/**, a toolbar withdraws your
-   pending invites one at a time (Withdraw → confirm popover), through the queue
-   with **deliberately slow, low caps** — LinkedIn flags activity bursts. It
-   **stops immediately** if any restriction/CAPTCHA banner appears. Toggle with
-   `LINKEDIN.WITHDRAW_INVITES`. *Try `DRY_RUN: true` first.*
-2. **Hide promoted content** — read-only filter with robust text matching that
-   defeats LinkedIn's zero-width-character obfuscation of the "Promoted" label.
-   Fragile by nature — expect occasional label upkeep. Toggle with
-   `LINKEDIN.HIDE_PROMOTED`.
-
 ## TikTok
 
 1. **Bulk remove from Liked / Favorites** — on your own profile's **Liked** or
@@ -166,11 +160,10 @@ DOM (no API, no writes).
    queue. Pure DOM (no private API / no request-signing), so it's robust against
    TikTok's anti-automation. Toggle with `TIKTOK.BULK_REMOVE`.
 
-> **Two feasible-but-risky features were intentionally left for a supervised
-> pass** (see `FEATURE_FEASIBILITY_REPORT.md`): **LinkedIn bulk-remove
-> connections** (destructive, no undo, highest account-restriction risk) and
-> **TikTok bulk-unlike via the private API** (kill-switch fragile). The DOM
-> TikTok remover above covers Likes safely instead.
+> **One feasible-but-risky feature was intentionally left for a supervised
+> pass** (see `FEATURE_FEASIBILITY_REPORT.md`): **TikTok bulk-unlike via the
+> private API** (kill-switch fragile). The DOM TikTok remover above covers
+> Likes safely instead.
 
 ---
 
@@ -182,8 +175,8 @@ DOM (no API, no writes).
 4. Open one of the supported sites, make sure you're logged in, and use the
    features above.
 
-The toolbar popup shows how many unfollows and stories you've done today (with
-progress bars) and has a global **Stop** button for bulk runs.
+The toolbar popup shows how many unfollows you've done today (with a progress
+bar) and has a global **Stop** button for bulk runs.
 
 ---
 
@@ -198,12 +191,12 @@ To protect your account, all bulk actions are deliberately throttled through the
 shared queue:
 
 - **Randomized delays** between each action (e.g. 20–45 s for IG unfollow, 5–8 s
-  for YouTube removals, 3–7 s for LinkedIn withdrawals).
+  for YouTube removals, 1.5–3.5 s for X unlikes).
 - A **per-run cap** and a **per-day cap**, each action with its **own daily
   budget** persisted in `chrome.storage.local`.
 - It **stops automatically** if the platform returns an action-block (IG 429 /
-  `feedback_required`, X 429 / codes 88/326/64/261, LinkedIn restriction banner),
-  and you can hit **Stop** anytime.
+  `feedback_required`, X 429 / codes 88/326/64/261), and you can hit **Stop**
+  anytime.
 
 If a run is capped, just run it again later/tomorrow to continue.
 
@@ -252,12 +245,11 @@ src/
   config.js            all tunables, toggles, labels, caps (+ BWI namespace)
   queue.js             shared throttled bulk-action queue (every platform)
   ui.js                shared DOM helpers, toasts, dialog/scroll utilities
-  ig-api.js            Instagram private web API (friendships, media, story upload)
-  feature1–5,7,9.js    Instagram features (see numbered list above)
+  ig-api.js            Instagram private web API (friendships, media)
+  feature1–5,7.js      Instagram features (see numbered list above)
   yt-bulk.js/yt-keys.js      YouTube
   x-api.js/x-*.js            X (Twitter)
   reddit-unsave.js/reddit-hide.js
-  linkedin-invites.js/linkedin-hide.js
   tiktok-bulk.js
 ```
 

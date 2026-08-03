@@ -85,6 +85,40 @@
     return null;
   }
 
+  // Insert `node` so it sits visually ABOVE the native list `container`, even if
+  // Instagram's wrapper around the list stacks its children horizontally. We
+  // climb from the scroll container while each parent lays its children out in a
+  // row/grid (where a plain previous-sibling would land BESIDE the list, not
+  // above it) and insert before the highest such child — i.e. the lowest level
+  // that stacks vertically. Plain sibling insertion only (never re-parents a
+  // React-managed node, which could crash Instagram's renderer).
+  function insertAboveList(node, container) {
+    let child = container;
+    let parent = container.parentElement;
+    let safety = 0;
+    while (parent && safety++ < 12) {
+      const cs = getComputedStyle(parent);
+      const disp = cs.display;
+      const horizontal =
+        disp === "grid" ||
+        ((disp === "flex" || disp === "inline-flex") &&
+          /^row/.test(cs.flexDirection || "row")) ||
+        disp === "inline" ||
+        disp === "inline-block";
+      if (!horizontal) {
+        // This parent stacks vertically → inserting before `child` puts us above
+        // the list. Stop climbing.
+        parent.insertBefore(node, child);
+        return node;
+      }
+      child = parent;
+      parent = parent.parentElement;
+    }
+    // Fallback to the original behavior if we couldn't find a vertical stacker.
+    container.parentNode.insertBefore(node, container);
+    return node;
+  }
+
   // Find a <button> (or [role="button"]) within `root` whose trimmed text
   // exactly matches `label`.
   function findButtonByText(root, label) {
@@ -456,82 +490,16 @@
     };
   }
 
-  // ---- Story-image helpers (Feature 9 composer) ----------------------------
-
-  // Load an <img> from a src (object URL or data URL). Resolves the element.
-  function loadImage(src) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve(img);
-      img.onerror = reject;
-      img.src = src;
-    });
-  }
-
-  // Draw an image/canvas onto a fresh 1080x1920 story canvas. "fill"
-  // cover-crops to fill the frame; "fit" letterboxes the whole image over a
-  // blurred cover of itself. Returns the canvas. Kept un-tainted by only
-  // drawing sources we own the bytes for (the user's locally-picked file).
-  function renderStoryBase(source, mode = "fit") {
-    const S = (BWI.config && BWI.config.STORY) || {};
-    const W = S.CANVAS_W || 1080;
-    const H = S.CANVAS_H || 1920;
-    const canvas = document.createElement("canvas");
-    canvas.width = W;
-    canvas.height = H;
-    const ctx = canvas.getContext("2d");
-    const sw = source.naturalWidth || source.width;
-    const sh = source.naturalHeight || source.height;
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0, 0, W, H);
-    if (!sw || !sh) return canvas;
-    if (mode === "fill") {
-      const scale = Math.max(W / sw, H / sh);
-      const dw = sw * scale;
-      const dh = sh * scale;
-      ctx.drawImage(source, (W - dw) / 2, (H - dh) / 2, dw, dh);
-    } else {
-      const cover = Math.max(W / sw, H / sh);
-      ctx.save();
-      ctx.filter = "blur(30px)";
-      ctx.drawImage(
-        source,
-        (W - sw * cover) / 2,
-        (H - sh * cover) / 2,
-        sw * cover,
-        sh * cover
-      );
-      ctx.restore();
-      const contain = Math.min(W / sw, H / sh);
-      ctx.drawImage(
-        source,
-        (W - sw * contain) / 2,
-        (H - sh * contain) / 2,
-        sw * contain,
-        sh * contain
-      );
-    }
-    return canvas;
-  }
-
-  function canvasToJpegBlob(canvas, quality = 0.9) {
-    return new Promise((resolve) =>
-      canvas.toBlob((b) => resolve(b), "image/jpeg", quality)
-    );
-  }
-
   BWI.ui = {
     text,
     getDialogs,
     dialogTitleIs,
     findScrollContainer,
+    insertAboveList,
     findButtonByText,
     toast,
     buildUserRow,
     renderSubsection,
     renderListSubsection,
-    loadImage,
-    renderStoryBase,
-    canvasToJpegBlob,
   };
 })();

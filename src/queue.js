@@ -200,9 +200,9 @@
   };
 
   BWI.queue = queue;
-  // getDailyCount / bumpDailyCount are exported so one-shot writes that don't
-  // use the bulk queue (e.g. the single story-composer post) can still share
-  // the same per-action daily-budget storage convention.
+  // getDailyCount / bumpDailyCount / isActionBlock are exported so callers that
+  // don't drive the bulk queue directly (e.g. Feature 2's per-row unfollow)
+  // can still share the same per-action daily-budget + action-block conventions.
   BWI.queueUtil = { getDailyCount, bumpDailyCount, isActionBlock };
 
   // Let the popup remotely stop a running bulk job.

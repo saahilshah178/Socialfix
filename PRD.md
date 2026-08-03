@@ -16,12 +16,12 @@ Instagram is the initial platform. The extension's architecture will expand to s
 |---|---|
 | Shift-click instant unfollow/remove | Shipped |
 | "Doesn't follow you back" subsection + bulk unfollow | Shipped |
-| Bigger Followers/Following modals | Shipped |
+| Bigger Followers/Following modals | Shipped — widen-only, default **off** since 2026-08 (forcing a height broke IG's virtualized list) |
 | Bulk unsave on the Saved page | Shipped |
 | Keyboard story navigation (H / L between users) | Shipped |
 | Bulk unlike | Native IG feature (not built here — see CLAUDE.md) |
 | See who unfollowed you recently | Shipped |
-| Enhanced story composer (text + drawing + fit) | Shipped — write API, verify live under DRY_RUN |
+| Enhanced story composer (text + drawing + fit) | **Removed — dropped by user request (2026-08)** (shipped scope-reduced, then deleted along with the `ig-api.js` story-upload core) |
 | Bulk unsave by collection | **Removed — impossible** (per-collection removal is mobile-app-only; web silently full-unsaves) |
 | Repost people's stories | **Removed — impossible** (web ships no story-create call; finalize endpoint is mobile-tier + flags web sessions) |
 | Reorder carousel images | **Removed — native** (Instagram web now reorders carousels itself) |
@@ -84,9 +84,9 @@ Instagram is the initial platform. The extension's architecture will expand to s
 
 ---
 
-#### 4. Story Creation Tools — ✅ Shipped (Feature 9), scope-reduced — verify live under DRY_RUN
+#### 4. Story Creation Tools — 🚫 Removed — dropped by user request (2026-08)
 
-> **Scope cut:** Text, freehand drawing, and fit/fill ship (all rasterized into the JPEG — no sticker payload, genuinely feasible). The **interactive link/poll stickers were removed** — the plain web `configure_to_story` endpoint silently drops `tap_models`/`story_sticker_ids` (mobile-app-only), so they'd post an image with no sticker. See `FEATURE_FEASIBILITY_REPORT.md` §2.2.
+> **Removed (shipped scope-reduced, then dropped entirely).** The text + freehand-drawing + fit/fill composer shipped as `feature9.js` (the **interactive link/poll stickers** had already been cut — the plain web `configure_to_story` endpoint silently drops `tap_models`/`story_sticker_ids` (mobile-app-only), so they'd post an image with no sticker; see `FEATURE_FEASIBILITY_REPORT.md` §2.2). In **2026-08 the whole feature was removed by user request**: `feature9.js` was deleted and the story-upload core (`ruploadPhoto`/`configureToStory`) was stripped from `ig-api.js`, along with the `STORY` config block, `STORY_CREATE_TOOLS` toggle, story styles, and the popup's stories counter. Do not rebuild unless asked.
 
 **Problem:** The web story creator is minimal compared to mobile — no text stickers, no drawing tools, limited media options.
 
@@ -143,11 +143,11 @@ The extension will evolve into a **platform-agnostic power-user toolkit**. Insta
 
 | Platform | Feature directions |
 |---|---|
-| **Twitter / X** | ✅ **Shipped** — bulk unlike (`x-unlike.js`), bulk unfollow non-followers (`x-api.js` + `x-unfollow.js`), chronological Following feed (`x-feed.js`), keyboard shortcuts on the hovered tweet (`x-keys.js`), hide promoted content (`x-hide.js`) |
+| **Twitter / X** | ✅ **Shipped** — bulk unlike (`x-unlike.js`), bulk unfollow non-followers (`x-api.js` + `x-unfollow.js` — **rebuilt DOM-first 2026-08** after X removed the v1.1 friends-list endpoints (404): it now scans loaded rows on your own Following page and clicks X's own unfollow flow; only the batched follow-back lookup still uses the API), chronological Following feed (`x-feed.js`), keyboard shortcuts on the hovered tweet (`x-keys.js`), hide promoted content (`x-hide.js`) |
 | **TikTok** | ✅ **Shipped** — bulk remove from Liked + Favorites via pure DOM (`tiktok-bulk.js`). ~~See mutual follows~~ (IMPOSSIBLE — X-Bogus-gated). Bulk-unlike via the private API deferred (kill-switch fragile; the DOM remover covers Likes). |
 | **Reddit** | ✅ **Shipped** — bulk unsave (`reddit-unsave.js`), hide promoted (`reddit-hide.js`). ~~Keyboard post nav~~ (native — do not build). |
 | **YouTube** | ✅ **Shipped** — bulk-remove Watch Later + bulk unlike Liked videos (`src/yt-bulk.js`), keyboard gap-fills for Like/Save/Subscribe/comment (`src/yt-keys.js`). Only the genuine gaps were added; YouTube's large native shortcut set was not rebuilt. |
-| **LinkedIn** | ✅ **Shipped** — bulk-withdraw sent invitations (`linkedin-invites.js`), hide promoted (`linkedin-hide.js`). Bulk-remove connections **deferred** (FRAGILE + destructive/no-undo + highest account-restriction risk; build with a live DRY_RUN pass). |
+| **LinkedIn** | 🚫 **Removed (2026-08)** — LinkedIn support was dropped by user request. `linkedin-invites.js` (bulk-withdraw sent invitations) and `linkedin-hide.js` (hide promoted) were deleted, along with the `LINKEDIN` config block and the manifest entry. The hostility analysis in `FEATURE_FEASIBILITY_REPORT.md` §3.15–3.17 stands as the record; do not rebuild unless asked. |
 
 Platform modules follow the same conventions as the Instagram implementation
 (the YouTube module is the reference for new platforms):
@@ -163,14 +163,11 @@ Platform modules follow the same conventions as the Instagram implementation
 
 ### Deliberately deferred (feasible, but not shipped blind)
 
-Two features the report rates buildable were left for a supervised pass rather
-than shipped without a live test, because both are high-consequence:
+One feature the report rates buildable was left for a supervised pass rather
+than shipped without a live test, because it is high-consequence. (A second —
+LinkedIn bulk-remove 1st-degree connections, §3.16 — became moot when LinkedIn
+support was removed in 2026-08.)
 
-- **LinkedIn — bulk-remove 1st-degree connections** (§3.16, FRAGILE). Destructive
-  with **no undo**, on the most automation-hostile host, and the report's
-  highest write-risk. Wire it as DOM-automation (overflow → "Remove connection"
-  → confirm modal, MutationObserver-confirmed like IG Feature 1) behind a
-  default-OFF toggle, and validate under `DRY_RUN` on a real account first.
 - **TikTok — bulk-unlike via the private `commit/item/digg` API** (§3.6). Works
   today but is an explicit **kill-switch** if TikTok enables X-Bogus on
   in-session calls, and needs a MAIN-world bridge + page-state reading. The
