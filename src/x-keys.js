@@ -1,4 +1,4 @@
-// Better Web Insta — X: keyboard shortcut gap-fills.
+// Socialfix — X: keyboard shortcut gap-fills.
 // (FEATURE_FEASIBILITY_REPORT.md §3.4.)
 //
 // X ships single-key shortcuts (l like, r reply, t retweet, …) but they act on

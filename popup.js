@@ -18,20 +18,21 @@ async function refresh() {
     Math.min(100, Math.round((count / DAILY_CAP) * 100)) + "%";
 }
 
-// Every host the queue runs on (mirrors manifest.json content_scripts) — the
-// Stop button must reach a bulk run on any of them, not just Instagram.
-const SUPPORTED_TAB =
-  /^https:\/\/(www\.instagram\.com|www\.youtube\.com|x\.com|[^/]*\.reddit\.com|www\.tiktok\.com)\//;
-
+// We deliberately do NOT inspect tab.url here. Reading a tab's URL requires the
+// "tabs" permission (or a host permission), and this extension asks for
+// neither — it only declares content scripts. Instead we just send the message:
+// the content script exists only on supported sites, so sendMessage rejects
+// everywhere else, which is exactly the signal we need.
 document.getElementById("stop").addEventListener("click", async () => {
+  const status = document.getElementById("status");
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab || !SUPPORTED_TAB.test(tab.url || "")) {
-    return;
-  }
+  if (!tab) return;
   try {
     await chrome.tabs.sendMessage(tab.id, { type: "bwi-stop" });
+    status.textContent = "Stop signal sent.";
   } catch (_) {
-    /* no content script on this tab */
+    // No content script on this tab — not a supported site.
+    status.textContent = "No Socialfix run on this tab.";
   }
 });
 

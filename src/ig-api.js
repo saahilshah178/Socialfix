@@ -1,4 +1,4 @@
-// Better Web Insta — Instagram private web API helpers.
+// Socialfix — Instagram private web API helpers.
 // Shared by Feature 2 (non-follower subsection + bulk unfollow), Feature 4
 // (bulk unsave), and Feature 7 (see-who-unfollowed, read-only). All calls are
 // same-origin to www.instagram.com, so cookies ride along automatically with
@@ -200,16 +200,65 @@
     return username || null;
   }
 
+  // Did a friendships write actually apply? Instagram can answer 200 with a
+  // failure body (status:"fail"), or 200 with an HTML page (redirected consent/
+  // login wall — parsed as a string), or even 200 {status:"ok"} while the
+  // friendship_status it echoes back shows the edge STILL in place. The Aug 4
+  // audit hit exactly this: the panel marked rows "Unfollowed" while nothing
+  // changed server-side. Never trust the HTTP code alone.
+  function friendshipApplied(action, data) {
+    if (!data || typeof data !== "object" || data.status !== "ok") return false;
+    const fs = data.friendship_status;
+    if (fs) {
+      if (action === "destroy" && fs.following === true) return false;
+      if (action === "remove_follower" && fs.followed_by === true) return false;
+    }
+    return true;
+  }
+
   async function postFriendship(action, pk) {
     if (cfg.DRY_RUN) {
       console.log(`[BWI][DRY_RUN] ${action} ${pk} (not sent)`);
       return { dry_run: true, status: "ok" };
     }
-    return igFetch(`/api/v1/friendships/${action}/${pk}/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: "",
-    });
+    // Body + header shaped like Instagram's own web client (an empty body is
+    // accepted by some server revisions and silently ignored by others).
+    const post = (path) =>
+      igFetch(path, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "X-Instagram-AJAX": "1",
+        },
+        body: new URLSearchParams({
+          user_id: String(pk),
+          container_module: "self_unified_follow_lists",
+        }).toString(),
+      });
+
+    const webAction = action === "destroy" ? "unfollow" : action;
+    const webPath = `/api/v1/web/friendships/${pk}/${webAction}/`;
+
+    let primary = null;
+    try {
+      primary = await post(`/api/v1/friendships/${action}/${pk}/`);
+      if (friendshipApplied(action, primary)) return primary;
+      // 200 but the write didn't apply — fall through to the /web/ variant.
+    } catch (err) {
+      // Endpoint-gone (404/405, the /media/unsave/ precedent) → try the /web/
+      // variant. Anything else (400/429/…) is an action-block signal or a real
+      // failure and must propagate untouched.
+      if (!(err instanceof IgApiError) || (err.status !== 404 && err.status !== 405)) {
+        throw err;
+      }
+    }
+
+    // The fallback's errors propagate untouched: swallowing one here would hide
+    // a 429 / feedback_required from queue.isActionBlock, and the queue would
+    // keep writing to an action-blocked account instead of stopping.
+    const fallback = await post(webPath);
+    if (friendshipApplied(action, fallback)) return fallback;
+    throw new IgApiError(`${action} ${pk} did not apply`, 200, fallback || primary);
   }
 
   const unfollow = (pk) => postFriendship("destroy", pk);

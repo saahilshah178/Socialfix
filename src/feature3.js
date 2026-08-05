@@ -1,4 +1,4 @@
-// Better Web Insta — Feature 3: bigger Followers/Following modals.
+// Socialfix — Feature 3: bigger Followers/Following modals.
 // Instagram's list modals are small. We enlarge BOTH (any profile) so there's
 // room for the native list and the Feature 2 subsection.
 //

@@ -3,3 +3,8 @@ node_modules/
 *.log
 .claude/
 .gstack/
+dist/
+
+# Stale pre-rename build output (superseded by dist/ + scripts/package.sh)
+Socialfix-extension/
+Socialfix-extension.zip

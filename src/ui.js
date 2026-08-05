@@ -1,4 +1,4 @@
-// Better Web Insta — shared DOM helpers + subsection rendering.
+// Socialfix — shared DOM helpers + subsection rendering.
 // All injected markup uses our own `bwi-` class names (styled in styles.css)
 // so we never depend on Instagram's obfuscated classes.
 (function () {

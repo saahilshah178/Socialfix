@@ -1,4 +1,4 @@
-// Better Web Insta — YouTube: keyboard shortcut gap-fills.
+// Socialfix — YouTube: keyboard shortcut gap-fills.
 // (FEATURE_FEASIBILITY_REPORT.md §3.14.)
 //
 // YouTube ships a big native shortcut set (K/J/L/F/M/C/T/I, 0-9, arrows,

@@ -1,4 +1,4 @@
-// Better Web Insta — Feature 2: "doesn't follow you back" subsection.
+// Socialfix — Feature 2: "doesn't follow you back" subsection.
 // Only fires on YOUR OWN profile's Following modal. Fetches the complete
 // following + followers lists via Instagram's private web API, computes the
 // set difference, and injects a subsection with per-row unfollow plus a
@@ -56,6 +56,25 @@
   function clearStoredNonFollowers() {
     try {
       chrome.storage.local.remove(storageKey());
+    } catch (_) {}
+  }
+
+  // Drop a successfully-unfollowed user from BOTH caches (in-memory and the
+  // 6h persisted one, preserving its timestamp) — otherwise reopening the
+  // modal within the TTL resurrects people you already unfollowed and the
+  // panel's count reads as if nothing happened (Aug 4 audit).
+  async function purgeNonFollower(pk) {
+    if (cache) {
+      cache.nonFollowers = cache.nonFollowers.filter((u) => u.pk !== pk);
+    }
+    try {
+      const key = storageKey();
+      const res = await chrome.storage.local.get(key);
+      const entry = res && res[key];
+      if (entry && Array.isArray(entry.nonFollowers)) {
+        entry.nonFollowers = entry.nonFollowers.filter((u) => u.pk !== pk);
+        await chrome.storage.local.set({ [key]: entry });
+      }
     } catch (_) {}
   }
 
@@ -171,14 +190,27 @@
 
   function wireHandlers(panel, nonFollowers, dialog) {
     async function unfollowOne(u, row) {
+      // Per-row unfollows share the bulk run's daily budget — otherwise a
+      // hundred hand-clicked unfollows would leave the counter at zero and a
+      // later "Unfollow all" would still grant a full DAILY_CAP on top of them.
+      const spent = await BWI.queueUtil.getDailyCount();
+      if (spent >= cfg.DAILY_CAP) {
+        ui.toast(`Daily unfollow limit reached (${cfg.DAILY_CAP}) — try tomorrow`);
+        return;
+      }
       panel.markRow(u.pk, "pending");
       try {
         await api.unfollow(u.pk);
         panel.markRow(u.pk, "done");
+        if (!cfg.DRY_RUN) BWI.queueUtil.bumpDailyCount();
+        purgeNonFollower(u.pk);
       } catch (err) {
         if (BWI.queueUtil.isActionBlock(err)) {
           ui.toast("Instagram action-blocked — slow down and try later");
+        } else {
+          ui.toast(`Couldn't unfollow ${u.username} — Instagram rejected it`);
         }
+        console.warn("[BWI] unfollow failed for", u.username, err);
         panel.markRow(u.pk, "fail");
       }
     }
@@ -194,6 +226,11 @@
     function onUnfollowAll() {
       const items = remaining().map((u) => ({ pk: u.pk, username: u.username }));
       if (items.length === 0) return;
+      // Singleton queue — see the note in feature4.onUnsave.
+      if (queue.isBusy()) {
+        ui.toast("Another bulk action is still running — stop it first");
+        return;
+      }
       if (cfg.DRY_RUN) ui.toast("DRY_RUN on — nothing will actually be sent");
 
       queue.onProgress((s) => {
@@ -208,6 +245,7 @@
           panel.markRow(s.current.pk, "pending");
         } else if (s.phase === "done-one") {
           panel.markRow(s.current.pk, "done");
+          purgeNonFollower(s.current.pk);
           panel.setProgress(`Unfollowed ${s.done}/${s.cap}…`, { busy: true });
         } else if (s.phase === "fail-one") {
           panel.markRow(s.current.pk, "fail");
@@ -257,6 +295,11 @@
       // Build the panel shell immediately (in its loading state) and insert it
       // above the native list, so the user sees the section right away and
       // rows stream in as the scan finds them — no blank multi-second wait.
+      // `handlers` must exist BEFORE the panel is inserted: rows stream in
+      // while the scan is still paginating, and clicking a streamed row's
+      // Unfollow before the scan finished would otherwise throw on an
+      // undefined `handlers` and look like a dead button. Rewired with the
+      // full list once the scan completes (only "Unfollow all" needs it).
       let handlers;
       const panel = ui.renderSubsection({
         onUnfollowOne: (u, row) => handlers.onUnfollowOne(u, row),
@@ -264,6 +307,7 @@
         onStop: () => handlers.onStop(),
         onRefresh: () => handlers.onRefresh(),
       });
+      handlers = wireHandlers(panel, [], dialog);
       ui.insertAboveList(panel.root, container);
 
       let nonFollowers;

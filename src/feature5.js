@@ -1,4 +1,4 @@
-// Better Web Insta — Feature 5: keyboard story navigation (H / L).
+// Socialfix — Feature 5: keyboard story navigation (H / L).
 // While viewing a story, H jumps to the PREVIOUS user's story and L jumps to the
 // NEXT user's story — skipping any remaining frames of the current person. The
 // arrow keys already step one frame at a time (rolling into the next person at

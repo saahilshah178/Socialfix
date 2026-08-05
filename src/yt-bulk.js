@@ -1,4 +1,4 @@
-// Better Web Insta — YouTube: bulk-remove from Watch Later / Liked videos.
+// Socialfix — YouTube: bulk-remove from Watch Later / Liked videos.
 // (FEATURE_FEASIBILITY_REPORT.md §3.12 / §3.13.)
 //
 // Pure DOM automation in the spirit of IG Feature 1: on /playlist?list=WL or
@@ -59,8 +59,26 @@
 
   // ---- row helpers -------------------------------------------------------------
 
+  // YouTube's SPA keeps the page you navigated AWAY from alive in the DOM as a
+  // hidden cached page (ytd-browse[hidden]). ROW_SEL matches
+  // yt-lockup-view-model, which is also the generic tile shell on Home/Library
+  // — so an unscoped document query right after "Liked videos" is clicked finds
+  // tiles on the CACHED page you just left, and the toolbar lands inside that
+  // hidden page (invisible until a hard refresh). Scope every row lookup to the
+  // visible browse page.
+  function pageRoot() {
+    const browses = document.querySelectorAll("ytd-browse");
+    if (!browses.length) return document; // page still streaming in
+    for (const b of browses) {
+      if (!b.hasAttribute("hidden")) return b;
+    }
+    return null; // every browse is a hidden cached page (mid-transition)
+  }
+
   function allRows() {
-    return Array.from(document.querySelectorAll(ROW_SEL)).filter((r) =>
+    const root = pageRoot();
+    if (!root) return [];
+    return Array.from(root.querySelectorAll(ROW_SEL)).filter((r) =>
       r.querySelector('a[href*="watch?v="]')
     );
   }
@@ -78,6 +96,15 @@
       if (videoIdOfRow(row) === vid) return row;
     }
     return null;
+  }
+
+  // Rendered and on-screen? YouTube hides closed menus rather than removing
+  // them, and hidden nodes keep their text — so visibility is the only way to
+  // tell the live dropdown from the previous row's leftovers.
+  function isVisible(el) {
+    if (!el.isConnected || el.offsetParent === null) return false;
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
   }
 
   function findByAria(root, label) {
@@ -120,12 +147,18 @@
     menuBtn.click();
 
     // The dropdown renders into a top-level popup container a beat later.
+    //
+    // CRITICAL: match only items in a VISIBLE dropdown. YouTube keeps the
+    // previous row's menu items in its global popup container after close
+    // (display:none) with identical text still bound to the PREVIOUS video's
+    // endpoint. A document-wide text match would click that stale item —
+    // removing nothing, while we report success and move on.
     const target = menuItemText.toLowerCase();
     let clicked = false;
-    for (let tries = 0; tries < 20 && !clicked; tries++) {
+    for (let tries = 0; tries < 25 && !clicked; tries++) {
       await sleep(120);
-      const items = document.querySelectorAll(MENU_ITEM_SEL);
-      for (const el of items) {
+      for (const el of document.querySelectorAll(MENU_ITEM_SEL)) {
+        if (!isVisible(el)) continue;
         const t = (el.textContent || "").trim().toLowerCase();
         if (t && (t === target || t.includes(target))) {
           el.click();
@@ -140,9 +173,14 @@
       throw new Error(`menu item "${menuItemText}" not found`);
     }
 
-    // Best-effort: wait for YouTube to detach the row (confirms the removal
-    // registered). Not fatal if it lingers — deletions are processed async.
+    // Verify YouTube actually dropped the row. Treating a lingering row as
+    // success is what let silent skips be reported as "Done — removed N", so
+    // this is fatal: the queue counts the item failed, leaves it selected, and
+    // the user can retry. Generous window — YouTube deletes asynchronously.
     for (let tries = 0; tries < 25 && row.isConnected; tries++) await sleep(200);
+    if (row.isConnected && rowForVideoId(item.pk) === row) {
+      throw new Error("row still present after removal — not confirmed: " + item.pk);
+    }
   }
 
   // ---- selection UI --------------------------------------------------------------
@@ -282,6 +320,12 @@
 
   function onRemove(def) {
     if (running || selected.size === 0) return;
+    // Singleton queue: a second run would no-op and hijack the live run's
+    // progress events (e.g. after navigating between WL and LL mid-run).
+    if (queue.isBusy()) {
+      ui.toast("Another bulk action is still running — stop it first");
+      return;
+    }
 
     // Two-click inline confirm (no window.confirm — it would freeze the page).
     if (!confirmPending) {
@@ -361,10 +405,19 @@
       return;
     }
     if (toolbar && document.contains(toolbar)) {
-      // Continuation rows load as you scroll; retag them — but only when a
-      // selection exists (this runs on every body mutation).
-      if (selected.size) reapplyOverlays();
-      return;
+      // Self-heal: a toolbar stranded outside the VISIBLE browse (on a cached
+      // hidden page, or orphaned by a content swap) would block re-injection
+      // forever via this contains() check while staying invisible. Rebuild it
+      // on the live page instead.
+      const root = pageRoot();
+      if (root && root !== document && !root.contains(toolbar)) {
+        teardown();
+      } else {
+        // Continuation rows load as you scroll; retag them — but only when a
+        // selection exists (this runs on every body mutation).
+        if (selected.size) reapplyOverlays();
+        return;
+      }
     }
     // Anchor above the playlist rows. Classic playlists nest rows in
     // ytd-playlist-video-list-renderer; the lockup layout puts them in a plain
