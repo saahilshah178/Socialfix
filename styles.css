@@ -1,4 +1,4 @@
-/* Better Web Insta — injected subsection + toast styles.
+/* Socialfix — injected subsection + toast styles.
    Scoped under bwi- class names so we never collide with Instagram. */
 
 /* Feature 3 (bigger modals) sizes the real card + scroll container with inline
@@ -239,8 +239,10 @@
 }
 
 /* Selected playlist rows get an unmistakable inset outline. !important so it
-   survives YouTube's own hover/focus styling. */
-ytd-playlist-video-renderer.bwi-yt-selected {
+   survives YouTube's own hover/focus styling. Both row shells: classic
+   ytd-playlist-video-renderer (Watch Later) and yt-lockup-view-model (Liked). */
+ytd-playlist-video-renderer.bwi-yt-selected,
+yt-lockup-view-model.bwi-yt-selected {
   outline: 3px solid #3ea6ff !important;
   outline-offset: -3px;
   border-radius: 8px;
@@ -248,7 +250,8 @@ ytd-playlist-video-renderer.bwi-yt-selected {
 }
 
 /* In select mode every row reads as clickable. */
-.bwi-yt-selecting ytd-playlist-video-renderer {
+.bwi-yt-selecting ytd-playlist-video-renderer,
+.bwi-yt-selecting yt-lockup-view-model {
   cursor: pointer;
 }
 
@@ -274,6 +277,42 @@ ytd-playlist-video-renderer.bwi-yt-selected {
 }
 .bwi-x-count {
   font-weight: 600;
+}
+
+/* Bulk unlike select mode: chosen tweets get an inset outline (mirrors the
+   YouTube pattern). !important so X's own hover styling can't hide it. */
+article[data-testid="tweet"].bwi-x-selected {
+  outline: 3px solid #1d9bf0 !important;
+  outline-offset: -3px;
+  border-radius: 12px;
+  background: rgba(29, 155, 240, 0.08) !important;
+}
+
+.bwi-x-selecting article[data-testid="tweet"] {
+  cursor: pointer;
+}
+
+/* Reddit: an item unsaved through the API stays in the listing until reload —
+   fade it so progress is visible. */
+.bwi-unsaved {
+  opacity: 0.35 !important;
+  transition: opacity 0.3s ease;
+}
+
+/* Reddit select mode: chosen items get the same inset outline as X/YouTube.
+   Covers both old-reddit .thing rows and shreddit custom elements. */
+.bwi-reddit-selected {
+  outline: 3px solid #ff4500 !important;
+  outline-offset: -3px;
+  border-radius: 8px;
+  background: rgba(255, 69, 0, 0.08) !important;
+}
+
+.bwi-reddit-selecting .thing[data-fullname],
+.bwi-reddit-selecting shreddit-post,
+.bwi-reddit-selecting shreddit-comment,
+.bwi-reddit-selecting shreddit-profile-comment {
+  cursor: pointer;
 }
 
 .bwi-x-launch {

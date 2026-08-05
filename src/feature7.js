@@ -1,4 +1,4 @@
-// Better Web Insta — Feature 7 (PRD "See who unfollowed you recently").
+// Socialfix — Feature 7 (PRD "See who unfollowed you recently").
 // Only fires on YOUR OWN Followers modal. We snapshot your complete follower
 // set to chrome.storage.local; on later visits we diff the current set against
 // the previous snapshot and inject a read-only "who dropped off" subsection
@@ -157,8 +157,26 @@
             prevCount >= 30 &&
             followers.length < prevCount * cfg.UNFOLLOWERS_MIN_TRUST_RATIO;
 
-          if (suspiciousDrop) {
-            distrusted = true; // keep currentPks = prev snapshot; don't diff/save
+          // A big drop is distrusted the FIRST time we see it, then accepted if
+          // a later independent scan reproduces roughly the same count — a
+          // rate-limited partial read wouldn't land on the same number twice,
+          // but a real purge would. Without this second chance a genuine drop
+          // left the panel permanently stuck on stale results.
+          const corroborated =
+            suspiciousDrop &&
+            prev.suspectCount != null &&
+            Math.abs(followers.length - prev.suspectCount) <=
+              Math.max(5, prev.suspectCount * 0.1);
+
+          if (suspiciousDrop && !corroborated) {
+            distrusted = true; // keep currentPks = prev snapshot; don't diff
+            // Stamp ts so the 6h throttle still applies while distrusting —
+            // otherwise every modal open re-paginated the whole follower list.
+            await setStored(snapKey(), {
+              ...prev,
+              ts: Date.now(),
+              suspectCount: followers.length,
+            });
           } else {
             currentPks = new Set(followers.map((u) => u.pk));
 
@@ -246,7 +264,8 @@
         noteParts.push("Couldn’t refresh just now — showing your last saved results.");
       } else if (distrusted) {
         noteParts.push(
-          "This scan looked incomplete (likely rate-limited), so it was ignored — showing your last saved results."
+          "This scan showed an unusually large drop, so it wasn’t trusted yet — showing your last saved results. " +
+            "If the next check finds the same thing, it’ll be accepted then."
         );
       } else if (freshEnough) {
         noteParts.push("Recently scanned — reopen later for a fresh check.");

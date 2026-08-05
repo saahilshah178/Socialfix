@@ -1,4 +1,4 @@
-// Better Web Insta — shared config & namespace.
+// Socialfix — shared config & namespace.
 // Content scripts run in an isolated world and share `window`. We hang
 // everything off a single `window.BWI` namespace to keep things explicit
 // and avoid clashing with Instagram's own globals.
@@ -233,55 +233,16 @@
       },
 
       LABELS: {
-        // old.reddit action-row link text (lowercased match).
-        unsave: "unsave",
-        unsaveComment: "delete from saved", // comments variant
-        // new/shreddit overflow menu item text.
-        removeFromSaved: "Remove from saved",
         // Promoted-post markers. Reddit's 2026 ad policy mandates a visible,
         // non-removable "Promoted" label — that's the stable hook.
+        // (Bulk unsave no longer needs UI text: it posts to the legacy
+        // /api/unsave endpoint directly — see reddit-unsave.js.)
         promotedMarkers: ["promoted", "Promoted"],
       },
     },
 
-    // ---- TikTok (tiktok.com) ----------------------------------------------
-    // Bulk remove from your own Liked / Favorites tabs. Pure DOM automation of
-    // the browse modal (no private API, no X-Bogus signing) — robust against
-    // TikTok's request-signing, at the cost of driving the UI per item.
-    TIKTOK: {
-      BULK_REMOVE: true,
-
-      // ~100 removals/hr before a ~1hr soft rate-limit (no bans reported).
-      REMOVE: {
-        MIN_DELAY_MS: 3000,
-        MAX_DELAY_MS: 6000,
-        SESSION_CAP: 100,
-        DAILY_CAP: 300,
-        DAILY_KEY: "bwi_daily_remove_tiktok_",
-      },
-
-      // Which profile tab each mode targets (matched by data-e2e / aria / text)
-      // and the toggle each one flips inside the opened video modal.
-      TABS: {
-        liked: {
-          name: "Liked",
-          tabTestId: "liked-tab",
-          tabText: "Liked",
-          // The like button inside the modal; aria-label prefix (localized text
-          // follows). Clicking it while pressed unlikes.
-          toggleAria: "like",
-        },
-        favorites: {
-          name: "Favorites",
-          tabTestId: "favorites-tab",
-          tabText: "Favorites",
-          toggleAria: "favorite",
-        },
-      },
-      LABELS: {
-        browseClose: "browse-close", // data-e2e on the modal close button
-      },
-    },
+    // (TikTok support was removed entirely by user request, 2026-08 — do not
+    // rebuild unless asked.)
 
     // Button label text we match on. Instagram's CSS classes are obfuscated
     // and change constantly, but the visible English text is stable. To

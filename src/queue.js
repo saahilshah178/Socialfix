@@ -1,4 +1,4 @@
-// Better Web Insta — throttled bulk-action queue.
+// Socialfix — throttled bulk-action queue.
 // The single path for ALL bulk actions on every platform. Enforces randomized
 // delays plus session and daily caps, and stops on action-blocks. Progress is
 // pushed to a listener so the feature UIs (and popup) can render live status.
@@ -52,7 +52,11 @@
       if (b.spam === true || b.feedback_required) return true;
       if (typeof b.message === "string") {
         if (b.message === "feedback_required") return true;
-        if (/block|spam|wait/i.test(b.message)) return true;
+        // challenge/checkpoint/consent/login walls mean every subsequent write
+        // will silently fail too — stop the run, don't burn the queue.
+        if (/block|spam|wait|challenge|checkpoint|consent|login_required/i.test(b.message)) {
+          return true;
+        }
       }
       // X returns an errors:[{code}] array: 88 rate-limit, 326 locked/verify,
       // 64 suspended, 261 write-restricted. Any of these means stop.
@@ -72,6 +76,15 @@
 
     onProgress(fn) {
       this.listener = fn;
+    },
+
+    // Is a bulk run already in flight? The queue is a SINGLETON: run() silently
+    // no-ops when busy and onProgress() has one listener slot, so a second
+    // feature starting a run would both do nothing AND hijack the first run's
+    // progress events (rendering its counts as its own). Every feature must
+    // call this before touching onProgress/run — see the guard in each UI.
+    isBusy() {
+      return this.running;
     },
 
     emit(state) {
@@ -153,7 +166,9 @@
             await BWI.api[action](item.pk, item);
           }
           done++;
-          await bumpDailyCount(dailyKey, 1);
+          // A DRY_RUN rehearsal performs no real action, so it must not spend
+          // the real daily budget (that would block the live run afterwards).
+          if (!cfg.DRY_RUN) await bumpDailyCount(dailyKey, 1);
           this.emit({
             phase: "done-one",
             current: item,

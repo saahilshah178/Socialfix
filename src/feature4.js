@@ -1,4 +1,4 @@
-// Better Web Insta — Feature 4: bulk unsave on the Saved page.
+// Socialfix — Feature 4: bulk unsave on the Saved page.
 // Only fires on YOUR OWN Saved page (/<you>/saved/...). Injects a "Select"
 // control above the post grid; in select mode the user clicks individual saved
 // tiles to toggle them, then "Unsave (n)" fully unsaves the selection through
@@ -260,6 +260,13 @@
 
   function onUnsave() {
     if (running || selected.size === 0) return;
+    // The queue is a singleton: starting a second run would silently no-op AND
+    // steal the in-flight run's progress events, so this toolbar would report
+    // another feature's counts as unsaves.
+    if (queue.isBusy()) {
+      ui.toast("Another bulk action is still running — stop it first");
+      return;
+    }
 
     // Two-click inline confirm (no window.confirm — it would block the page).
     if (!confirmPending) {
@@ -367,6 +374,10 @@
 
   function teardown() {
     if (!toolbar && !grid) return;
+    // Stop an in-flight run first: teardown fires on SPA navigation away from
+    // the Saved page, and clearing `running` while the queue keeps unsaving
+    // would remove the Stop button from a job that is still sending writes.
+    if (running) queue.stop();
     if (grid) {
       grid.classList.remove("bwi-selecting");
       tileAnchors().forEach(stripOverlay);

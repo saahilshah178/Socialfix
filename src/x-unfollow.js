@@ -1,10 +1,10 @@
-// Better Web Insta — X: find & bulk-unfollow accounts that don't follow back.
+// Socialfix — X: find & bulk-unfollow accounts that don't follow back.
 // (FEATURE_FEASIBILITY_REPORT.md §3.2.)
 //
 // A floating toolbar on your OWN Following page (x.com/<you>/following). It
 // works on the rows currently loaded in the DOM — like bulk-unlike, scroll to
 // load more and rescan. Design (2026): X removed the v1.1 friends-list
-// endpoints, so this is DOM-first, matching x-unlike/tiktok:
+// endpoints, so this is DOM-first, matching x-unlike:
 //   • the following LIST comes from the loaded [data-testid="UserCell"] rows
 //     (the row's Following button is [data-testid="<userId>-unfollow"], so the
 //     numeric id is right there — no list API needed);
@@ -125,10 +125,18 @@
     // likely rejected it (write-restriction) — surface as a 429-shaped
     // action-block so queue.isActionBlock halts the run instead of the queue
     // burning the daily budget on silent no-op clicks.
-    for (let i = 0; i < 12; i++) {
+    let flipped = false;
+    for (let i = 0; i < 12 && !flipped; i++) {
       await sleep(200);
-      if (document.querySelector(`[data-testid="${item.pk}-follow"]`)) return; // flipped
-      if (!document.querySelector(`[data-testid="${item.pk}-unfollow"]`)) return; // row gone
+      if (document.querySelector(`[data-testid="${item.pk}-follow"]`)) flipped = true;
+      else if (!document.querySelector(`[data-testid="${item.pk}-unfollow"]`)) return; // row gone
+    }
+    if (flipped) {
+      // X flips the button OPTIMISTICALLY, before its server answers. A
+      // rejected write reverts it a moment later, so re-check after it settles
+      // rather than trusting the first flip.
+      await sleep(700);
+      if (!document.querySelector(`[data-testid="${item.pk}-unfollow"]`)) return;
     }
     const err = new Error("unfollow did not take — X may have restricted the action");
     err.status = 429;
@@ -238,6 +246,11 @@
 
   function onUnfollow() {
     if (running || !nonFollowers.length) return;
+    // Singleton queue — a second run no-ops and steals the live run's events.
+    if (queue.isBusy()) {
+      ui.toast("Another bulk action is still running — stop it first");
+      return;
+    }
     if (!confirmPending) {
       confirmPending = true;
       setText(els.unfollowBtn, `Confirm — unfollow ${nonFollowers.length}?`);

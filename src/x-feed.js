@@ -1,4 +1,4 @@
-// Better Web Insta — X: chronological "Following" feed enforcer.
+// Socialfix — X: chronological "Following" feed enforcer.
 // (FEATURE_FEASIBILITY_REPORT.md §3.3.)
 //
 // Pure DOM, no API, no queue. On Home, X resets to the algorithmic "For You"

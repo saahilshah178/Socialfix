@@ -1,10 +1,12 @@
-# Better Web Insta — Product Requirements Document
+# Socialfix (formerly Better Web Insta) — Product Requirements Document
 
 ## Vision
 
-Better Web Insta is a personal Chrome extension that fills the gaps Instagram (and other social platforms) leave for power users. The core principle: every feature should feel like it *should have been there all along* — obvious UX fixes, missing keyboard shortcuts, and bulk actions that platforms deliberately omit to drive engagement.
+Socialfix is a Chrome extension that fills the gaps Instagram (and other social platforms) leave for power users. The core principle: every feature should feel like it *should have been there all along* — obvious UX fixes, missing keyboard shortcuts, and bulk actions that platforms deliberately omit to drive engagement.
 
-Instagram is the initial platform. The extension's architecture will expand to support **additional sites** (Twitter/X, TikTok, Reddit, etc.) with platform-specific modules loaded only when the matching host is active.
+Instagram is the initial platform. The extension's architecture expanded to **additional sites** (YouTube, Twitter/X, Reddit) with platform-specific modules loaded only when the matching host is active.
+
+**Distribution (changed 2026-08):** what started as a personal load-unpacked tool is now being published to the **Chrome Web Store** — hence the rename from "Better Web Insta" (trademark exposure) to **Socialfix**. `PUBLISHING.md` is the submission guide. Two product constraints follow from that and are now binding: the extension must keep a **single coherent purpose** (cleaning up your own activity on sites you're logged into) and must stay **zero-collection** (no analytics, no telemetry, no network call to any non-platform host) to match its published privacy disclosures.
 
 ---
 
@@ -15,7 +17,7 @@ Instagram is the initial platform. The extension's architecture will expand to s
 | Feature | Status |
 |---|---|
 | Shift-click instant unfollow/remove | Shipped |
-| "Doesn't follow you back" subsection + bulk unfollow | Shipped |
+| "Doesn't follow you back" subsection + bulk unfollow | Shipped — **fixed 2026-08 (Aug 4 audit)**: unfollows appeared to succeed but didn't apply. Instagram answers 200 `{status:"ok"}` while still reporting the follow edge, so writes are now validated (`friendshipApplied`), retried on the `/web/` endpoint, and unfollowed users are purged from the 6h cache |
 | Bigger Followers/Following modals | Shipped — widen-only, default **off** since 2026-08 (forcing a height broke IG's virtualized list) |
 | Bulk unsave on the Saved page | Shipped |
 | Keyboard story navigation (H / L between users) | Shipped |
@@ -144,9 +146,9 @@ The extension will evolve into a **platform-agnostic power-user toolkit**. Insta
 | Platform | Feature directions |
 |---|---|
 | **Twitter / X** | ✅ **Shipped** — bulk unlike (`x-unlike.js`), bulk unfollow non-followers (`x-api.js` + `x-unfollow.js` — **rebuilt DOM-first 2026-08** after X removed the v1.1 friends-list endpoints (404): it now scans loaded rows on your own Following page and clicks X's own unfollow flow; only the batched follow-back lookup still uses the API), chronological Following feed (`x-feed.js`), keyboard shortcuts on the hovered tweet (`x-keys.js`), hide promoted content (`x-hide.js`) |
-| **TikTok** | ✅ **Shipped** — bulk remove from Liked + Favorites via pure DOM (`tiktok-bulk.js`). ~~See mutual follows~~ (IMPOSSIBLE — X-Bogus-gated). Bulk-unlike via the private API deferred (kill-switch fragile; the DOM remover covers Likes). |
-| **Reddit** | ✅ **Shipped** — bulk unsave (`reddit-unsave.js`), hide promoted (`reddit-hide.js`). ~~Keyboard post nav~~ (native — do not build). |
+| **Reddit** | ✅ **Shipped** — bulk unsave (`reddit-unsave.js` — **rebuilt 2026-08**: the DOM-click build silently did nothing, so it now posts to Reddit's own long-stable `/api/unsave` with a modhash and uses the page only to read item ids; select-mode + unsave-all-loaded), hide promoted (`reddit-hide.js`). ~~Keyboard post nav~~ (native — do not build). |
 | **YouTube** | ✅ **Shipped** — bulk-remove Watch Later + bulk unlike Liked videos (`src/yt-bulk.js`), keyboard gap-fills for Like/Save/Subscribe/comment (`src/yt-keys.js`). Only the genuine gaps were added; YouTube's large native shortcut set was not rebuilt. |
+| **TikTok** | 🚫 **Removed (2026-08)** — dropped by user request. `tiktok-bulk.js` (bulk remove from Liked/Favorites via DOM automation of the browse modal), the `TIKTOK` config block, and the manifest entry were deleted. The private-API bulk-unlike that was deferred here is moot. Do not rebuild unless asked. |
 | **LinkedIn** | 🚫 **Removed (2026-08)** — LinkedIn support was dropped by user request. `linkedin-invites.js` (bulk-withdraw sent invitations) and `linkedin-hide.js` (hide promoted) were deleted, along with the `LINKEDIN` config block and the manifest entry. The hostility analysis in `FEATURE_FEASIBILITY_REPORT.md` §3.15–3.17 stands as the record; do not rebuild unless asked. |
 
 Platform modules follow the same conventions as the Instagram implementation
@@ -163,23 +165,22 @@ Platform modules follow the same conventions as the Instagram implementation
 
 ### Deliberately deferred (feasible, but not shipped blind)
 
-One feature the report rates buildable was left for a supervised pass rather
-than shipped without a live test, because it is high-consequence. (A second —
-LinkedIn bulk-remove 1st-degree connections, §3.16 — became moot when LinkedIn
-support was removed in 2026-08.)
+**Nothing is currently deferred.** Both entries that lived here became moot when
+their platforms were dropped by user request in 2026-08: TikTok bulk-unlike via
+the private `commit/item/digg` API (§3.6) and LinkedIn bulk-remove 1st-degree
+connections (§3.16). The feasibility analysis for both stands in
+`FEATURE_FEASIBILITY_REPORT.md` as the record.
 
-- **TikTok — bulk-unlike via the private `commit/item/digg` API** (§3.6). Works
-  today but is an explicit **kill-switch** if TikTok enables X-Bogus on
-  in-session calls, and needs a MAIN-world bridge + page-state reading. The
-  shipped pure-DOM remover already covers the Liked tab safely, so the API path
-  is only worth adding if the DOM one proves too slow — and only after a DevTools
-  check that a manual unlike still fires `digg` without an `X-Bogus` param.
 
 ---
 
 ## Non-Goals
 
-- Chrome Web Store distribution (personal use, load-unpacked only)
+- ~~Chrome Web Store distribution~~ — **this is now a goal** (2026-08). See
+  `PUBLISHING.md`. Load-unpacked remains supported for development.
+- Analytics, telemetry, error reporting, or any network request to a host other
+  than the four supported platforms — the store listing's privacy answers
+  promise zero collection, and shipping any of these would make them false.
 - Mobile or Firefox support
 - Any feature that requires storing credentials or a backend server
 - Automating content creation (captions, images) — tools assist creation, not replace it
@@ -206,7 +207,16 @@ support was removed in 2026-08.)
 ## Technical Constraints
 
 - All API calls are same-origin with `credentials: 'include'` — no auth tokens to manage
-- Bulk actions **must** go through queue.js; no secondary bulk path
+- Bulk actions **must** go through queue.js; no secondary bulk path, and every
+  entry point checks `queue.isBusy()` first (the queue is a singleton with one
+  progress-listener slot)
+- **Every mutating action must verify it actually applied** and throw otherwise
+  (`err.status = 429` when throttling is the likely cause). A click-and-assume
+  action reports success, spends the daily budget, and hides rate-limits from
+  the queue's stop-on-block — the worst failure mode in this codebase
 - New files added to load order in `manifest.json` content_scripts
 - DOM injection namespaced with `bwi-` prefix
 - Syntax check: `node --check src/<file>.js` after every edit
+- Store packaging: `./scripts/package.sh` builds `dist/socialfix-<version>.zip`
+  from the live tree; bump `manifest.json` `version` (strictly increasing)
+  before every upload

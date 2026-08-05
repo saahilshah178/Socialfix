@@ -1,4 +1,4 @@
-// Better Web Insta — Reddit: hide promoted posts.
+// Socialfix — Reddit: hide promoted posts.
 // (FEATURE_FEASIBILITY_REPORT.md §3.10.)
 //
 // Read-only DOM filter — no mutation, no API, works logged-out, zero ban risk.

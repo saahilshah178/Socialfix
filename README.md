@@ -1,4 +1,4 @@
-# Better Web Insta (Socialfix)
+# Socialfix
 
 A personal, unpacked **Manifest V3** Chrome extension that adds the power-user
 tools five major social sites leave out of their web clients — bulk
@@ -11,7 +11,7 @@ each platform's safe rate limits. There is **no build step, no backend, and no
 stored credentials** — it's vanilla JS loaded as content scripts that reuse
 your existing logged-in session.
 
-**Supported sites:** Instagram · YouTube · X (Twitter) · Reddit · TikTok
+**Supported sites:** Instagram · YouTube · X (Twitter) · Reddit
 *(each site's module loads only on that host).*
 
 ---
@@ -28,14 +28,13 @@ your existing logged-in session.
 | | See who dropped off your followers | Private API (read-only) |
 | **YouTube** | Bulk-remove Watch Later / Liked videos | DOM automation + queue |
 | | Keyboard gap-fills (`E`, `Shift+E`, `Shift+U`, `N`) | DOM |
-| **X (Twitter)** | Bulk unlike your Likes | DOM + queue |
+| **X (Twitter)** | Bulk unlike your Likes (multi-select) | DOM + queue |
 | | Unfollow people who don't follow you back | DOM + API follow-back check + queue |
 | | Force the chronological Following feed | DOM (read-only) |
 | | Hide promoted content | DOM (read-only) |
 | | Keyboard shortcuts on the hovered tweet | DOM |
-| **Reddit** | Bulk unsave | DOM + queue |
+| **Reddit** | Bulk unsave (multi-select or all-loaded) | Legacy API + queue |
 | | Hide promoted posts | DOM (read-only) |
-| **TikTok** | Bulk remove from Liked / Favorites | DOM + queue |
 
 Every toggle lives in `src/config.js`. The global `DRY_RUN` flag turns every
 mutating action into a console log instead of a real write.
@@ -115,9 +114,10 @@ Both are pure DOM automation riding YouTube's own UI (no private API calls).
 ## X (Twitter)
 
 1. **Bulk unlike** — on your own **Likes** tab (`x.com/<you>/likes`), a floating
-   toolbar shows **Unlike loaded (n)**. It unlikes the currently-loaded tweets
-   by clicking each native heart through the queue (1.5–3.5 s apart); scroll to
-   load more and run again. Two-click confirm, **Stop** anytime. Toggle with
+   toolbar with a **Select** mode: click tweets to pick exactly the ones you
+   want gone (or **Select all** for everything loaded), then **Unlike (n)**
+   clicks each native heart through the queue (1.5–3.5 s apart). Scroll to load
+   more and keep selecting. Two-click confirm, **Stop** anytime. Toggle with
    `X.BULK_UNLIKE`.
 2. **Unfollow people who don't follow you back** — on your own **Following**
    page (`x.com/<you>/following`), a floating **Non-followers** button opens a
@@ -145,25 +145,17 @@ Feed, hide, and shortcuts are pure DOM (no API, no writes).
 
 ## Reddit
 
-1. **Bulk unsave** — on your Saved page (best on **old.reddit.com/prefs/saved**;
-   new/shreddit Reddit supported best-effort via shadow-DOM piercing), a floating
-   toolbar unsaves the currently-loaded items through the queue. Scroll to load
-   more, run again. Toggle with `REDDIT.BULK_UNSAVE`.
+1. **Bulk unsave** — on your Saved page (old.reddit.com **or** new Reddit), a
+   floating toolbar with two ways to run: **Select** to pick individual saved
+   items (plus **Select all**), or **Unsave all loaded** to clear everything
+   currently on screen. Both go through the throttled queue with a two-click
+   confirm. The page is only used to read each item's id; the unsave itself
+   goes through Reddit's own long-stable `/api/unsave` endpoint (session cookie
+   + modhash), so it works the same on both designs. Unsaved items fade in
+   place; scroll to load more, run again. Toggle with `REDDIT.BULK_UNSAVE`.
 2. **Hide promoted posts** — read-only filter using Reddit's mandated "Promoted"
    label and the `shreddit-ad-post` element. Toggle with `REDDIT.HIDE_PROMOTED`.
 
-## TikTok
-
-1. **Bulk remove from Liked / Favorites** — on your own profile's **Liked** or
-   **Favorites** tab, a toolbar removes the loaded videos: for each, it opens
-   the video, clicks the like/favorite toggle off, and closes — through the
-   queue. Pure DOM (no private API / no request-signing), so it's robust against
-   TikTok's anti-automation. Toggle with `TIKTOK.BULK_REMOVE`.
-
-> **One feasible-but-risky feature was intentionally left for a supervised
-> pass** (see `FEATURE_FEASIBILITY_REPORT.md`): **TikTok bulk-unlike via the
-> private API** (kill-switch fragile). The DOM TikTok remover above covers
-> Likes safely instead.
 
 ---
 
@@ -175,8 +167,13 @@ Feed, hide, and shortcuts are pure DOM (no API, no writes).
 4. Open one of the supported sites, make sure you're logged in, and use the
    features above.
 
-The toolbar popup shows how many unfollows you've done today (with a progress
-bar) and has a global **Stop** button for bulk runs.
+Publishing to the Chrome Web Store instead? See **`PUBLISHING.md`** for the
+full submission guide (assets, listing copy, privacy answers, policy notes);
+`./scripts/package.sh` builds the upload zip.
+
+The toolbar popup shows how many Instagram unfollows you've done today (with a
+progress bar — other actions have their own separate daily budgets) and has a
+global **Stop** button for bulk runs.
 
 ---
 
@@ -229,9 +226,16 @@ real use. All throttle values, caps, labels, and the `DRY_RUN` flag live in
 - **One bulk path.** `src/queue.js` is the single throttled queue every bulk
   action flows through, enforcing delays, caps, and action-block detection. No
   feature bypasses it — account safety depends on this.
+- **Every write is verified.** An action that clicks and assumes is the worst
+  failure mode here: it would report success, spend the daily budget, and hide
+  a rate-limit from the queue's stop-on-block. So each mutating action confirms
+  the effect actually landed (the row disappears, the button flips *and stays
+  flipped* — X reverts optimistic UI when it rejects a write; Instagram is
+  asked whether the follow edge really changed) and fails loudly otherwise.
 
-This is for **personal, load-unpacked use** only — it is not hardened or
-intended for the Chrome Web Store, mobile, or Firefox.
+Runs **load-unpacked** for development, and is packaged for the **Chrome Web
+Store** with `./scripts/package.sh` — see `PUBLISHING.md`. Mobile and Firefox
+are out of scope.
 
 ---
 
@@ -241,6 +245,7 @@ intended for the Chrome Web Store, mobile, or Firefox.
 manifest.json          MV3 manifest — per-host content_scripts + load order
 popup.html / popup.js  toolbar popup: daily counters + global Stop
 styles.css             bwi-namespaced injected styles
+icons/                 extension icons 16/32/48/128 (generated)
 src/
   config.js            all tunables, toggles, labels, caps (+ BWI namespace)
   queue.js             shared throttled bulk-action queue (every platform)
@@ -250,9 +255,14 @@ src/
   yt-bulk.js/yt-keys.js      YouTube
   x-api.js/x-*.js            X (Twitter)
   reddit-unsave.js/reddit-hide.js
-  tiktok-bulk.js
+scripts/
+  package.sh           builds dist/socialfix-<version>.zip for the Web Store
+  gen-icons.js         regenerates icons/ + the padded store-listing icon
+  gen-promo.py         regenerates the store promo tiles
+store-assets/          store-listing icon + promo tiles (generated)
 ```
 
-See `CLAUDE.md` for the full architecture notes, `PRD.md` for the roadmap, and
-`FEATURE_FEASIBILITY_REPORT.md` for why certain features were removed as
-platform-impossible rather than built.
+See `CLAUDE.md` for the full architecture notes, `PRD.md` for the roadmap,
+`PUBLISHING.md` for the Chrome Web Store submission guide, `PRIVACY.md` for the
+privacy policy, and `FEATURE_FEASIBILITY_REPORT.md` for why certain features
+were removed as platform-impossible rather than built.

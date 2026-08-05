@@ -1,4 +1,4 @@
-// Better Web Insta — X: hide promoted / algorithmic clutter.
+// Socialfix — X: hide promoted / algorithmic clutter.
 // (FEATURE_FEASIBILITY_REPORT.md §3.5.)
 //
 // Read-only DOM filter — nothing is sent to X, so zero ban / rate-limit

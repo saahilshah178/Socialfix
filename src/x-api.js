@@ -1,4 +1,4 @@
-// Better Web Insta — X (Twitter) private web API helper (follow-back check).
+// Socialfix — X (Twitter) private web API helper (follow-back check).
 // Used by the bulk-unfollow feature (x-unfollow.js) for ONE thing: checking
 // which of your following follow you back, via friendships/lookup.json. That
 // v1.1 endpoint is same-origin to x.com's internal API (/i/api/1.1/...), so the
@@ -8,7 +8,7 @@
 //
 // NOTE (2026): X removed the v1.1 friends-list endpoints (friends/list.json and
 // friends/ids.json now 404), so the following LIST and the unfollow ACTION are
-// done purely in the DOM (x-unfollow.js), matching the x-unlike/tiktok
+// done purely in the DOM (x-unfollow.js), matching the x-unlike
 // philosophy. friendships/lookup.json is the one v1.1 read that survives, so we
 // keep it here for the cheap batched follow-back check. The churn-prone bits
 // (Bearer token, API host) live in cfg.X.
