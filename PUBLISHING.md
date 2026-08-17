@@ -154,10 +154,9 @@ by, or sponsored by Instagram/Meta, YouTube/Google, X Corp., or Reddit.
   `Socialfix has one purpose: letting users clean up their own activity (follows, likes, saved posts) on the social sites they use, by adding bulk-action tools with built-in rate limiting, plus small quality-of-life aids (promoted-post filters and keyboard shortcuts) on those same sites.`
 - **Permission justifications:**
   - `storage` — "Stores daily action counters (to enforce the extension's
-    built-in rate-limit budgets), local caches of the user's own
+    built-in rate-limit budgets) and local caches of the user's own
     follower/following lists so the Instagram panels don't re-scan on every
-    open, and small UI preferences (the remembered size of the
-    Followers/Following window). All data stays on-device."
+    open. All data stays on-device."
   - (No other API permissions are requested. If the form lists the four sites
     as host permissions because of the content-script match patterns, use the
     per-site justifications below.)
@@ -217,21 +216,18 @@ has to change unless you want it to:
    pick `dist/socialfix-2.2.0.zip`. The dashboard shows the parsed manifest
    (name, version 2.2.0, description) — check it says 2.2.0.
 4. **Store listing** tab (optional but recommended): the detailed description
-   still says everything true, but two lines are worth adding under
-   *Instagram* so the listing matches the product:
-   `• Drag any edge or corner of the Followers/Following window to resize it (size is remembered)`
+   still says everything true, but one line is worth adding so the listing
+   matches the product:
    `• The toolbar popup is a features-and-shortcuts cheat sheet for every site`
    Screenshots stay valid; replace the popup screenshot (#5) if you took one,
    since the popup now shows the cheat sheet.
-5. **Privacy** tab: no new permissions (still only `storage`, no
-   host_permissions, no remote code) and no new data category. The one thing
-   worth touching is the `storage` **permission justification** (§5 above,
-   already reworded) — append "and small UI preferences (the remembered size
-   of the Followers/Following window)" so it still describes everything the
-   permission is used for (`bwi_modal_size` in `chrome.storage.local`; the
-   popup's last tab lives in the popup page's own localStorage). `PRIVACY.md`
-   (the hosted policy) was updated with the same bullet and a new
-   "Last updated" date; push it so the public URL reflects that.
+5. **Privacy** tab: nothing to change — no new permissions (still only
+   `storage`, no host_permissions, no remote code), no new data category, and
+   the `storage` justification (§5 above) still describes everything the
+   permission is used for. `PRIVACY.md` (the hosted policy) only gained a
+   note that the popup remembers its last tab in the popup page's own
+   localStorage (not `chrome.storage`) plus a new "Last updated" date; push
+   it so the public URL reflects that.
 6. Click **Submit for review**. Updates go through the same review queue as
    new items (days to weeks); the live 2.1.0 keeps serving until 2.2.0 is
    approved and published (leave auto-publish on if it's on). Don't withdraw

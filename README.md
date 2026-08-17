@@ -22,7 +22,7 @@ your existing logged-in session.
 |---|---|---|
 | **Instagram** | Shift-click instant unfollow / remove | DOM (rides IG's own dialog) |
 | | "Doesn't follow you back" panel + bulk unfollow | Private API + queue |
-| | Resizable Followers / Following modals (drag any edge/corner; size remembered) | DOM |
+| | Bigger Followers / Following modals (opt-in) | CSS/DOM |
 | | Bulk unsave on the Saved page (multi-select) | Private API + queue |
 | | Keyboard story navigation (`H` / `L` between users) | DOM |
 | | See who dropped off your followers | Private API (read-only) |
@@ -52,15 +52,12 @@ mutating action into a console log instead of a real write.
    doesn't follow you back. Each has an instant **Unfollow** button, plus an
    **Unfollow all** button (throttled through the queue). The panel has a
    **▴ Hide / ▾ Show** toggle (same control as the Followers panel below).
-3. **Resizable Followers/Following modals** — drag any edge or corner of the
-   list window (any profile) to make it wider and/or taller, like a desktop
-   window; the size you pick is remembered and re-applied next time, and a
-   **double-click on any handle resets** it. Width is always safe; height is
-   kept only if Instagram's list actually renders into the taller box (the
-   extension checks after each drag and, if the list can't grow, silently
-   falls back to width-only with a one-time toast). Toggle with
-   `RESIZABLE_MODALS`; the older `BIGGER_MODALS` (off by default) just sets a
-   wider *initial* width when you haven't dragged a size yet.
+3. **Bigger Followers/Following modals** — optionally widens the list modals so
+   the native list and the injected subsections both fit comfortably. Widen-only
+   (forcing a height on Instagram's virtualized list broke its rendering) and
+   **off by default** — the injected panels are compact, internally-scrolling
+   sections that already fit the native modal. Opt in with `BIGGER_MODALS` in
+   `src/config.js`.
 4. **Bulk unsave on the Saved page** — on your own Saved page, click **Select**
    to enter an inline multi-select mode over the post grid, tap the tiles you
    want, then **Unsave (n)** to remove them all through the throttled queue.

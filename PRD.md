@@ -18,7 +18,7 @@ Instagram is the initial platform. The extension's architecture expanded to **ad
 |---|---|
 | Shift-click instant unfollow/remove | Shipped |
 | "Doesn't follow you back" subsection + bulk unfollow | Shipped — **fixed 2026-08 (Aug 4 audit)**: unfollows appeared to succeed but didn't apply. Instagram answers 200 `{status:"ok"}` while still reporting the follow edge, so writes are now validated (`friendshipApplied`), retried on the `/web/` endpoint, and unfollowed users are purged from the 6h cache |
-| Resizable Followers/Following modals | Shipped — **rebuilt 2026-08-15** as drag-to-resize (any edge/corner, size remembered, double-click resets). Height is verified after each drag and rolls back to width-only if Instagram's list can't grow. `BIGGER_MODALS` (default off) is now only the initial width |
+| Bigger Followers/Following modals | Shipped — widen-only, default **off** since 2026-08 (forcing a height broke IG's virtualized list). A drag-to-resize rebuild was tried 2026-08-15 and pulled 2026-08-16 before release |
 | Bulk unsave on the Saved page | Shipped |
 | Keyboard story navigation (H / L between users) | Shipped |
 | Bulk unlike | Native IG feature (not built here — see CLAUDE.md) |

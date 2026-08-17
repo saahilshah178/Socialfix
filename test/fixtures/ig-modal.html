@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <title>Socialfix fixture — Instagram Followers/Following modal</title>
-<!-- The extension's real stylesheet, straight from the repo (absolute file path). -->
+<!-- The extension's real stylesheet, straight from the repo (relative path). -->
 <link rel="stylesheet" href="../../styles.css">
 <style>
   /* Fixture-only chrome. Everything here is prefixed fx- so it can never be
      mistaken for extension markup (bwi-) or Instagram markup. Values mirror
      what Instagram's 2026 modal actually computes to (white 12px-radius card,
-     43px header, 356px inline list height) so feature3's structural
-     heuristics — findCard / findScrollContainer / dialogTitleIs — see the
-     same shapes they see on instagram.com. */
+     43px header, 356px inline list height) so ui.js's structural helpers —
+     dialogTitleIs / findScrollContainer / insertAboveList — see the same
+     shapes they see on instagram.com. */
   html, body { margin: 0; height: 100%; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -26,7 +26,7 @@
   .fx-page__bar { height: 44px; border-bottom: 1px solid #dbdbdb; margin-bottom: 24px; }
   .fx-page__block { height: 120px; background: #efefef; border-radius: 8px; margin-bottom: 16px; }
 
-  /* Full-viewport dimmed overlay; centers the dialog by default. */
+  /* Full-viewport dimmed overlay; centers the dialog. */
   .fx-overlay {
     position: fixed;
     inset: 0;
@@ -36,22 +36,12 @@
     justify-content: center;
     z-index: 100;
   }
-  .fx-overlay--topleft {
-    align-items: flex-start;
-    justify-content: flex-start;
-    padding: 40px;
-    box-sizing: border-box;
-  }
 
   /* [role=dialog] is a TRANSPARENT wrapper (like Instagram's) — no radius, no
-     background — so findCard must climb to .fx-card, not stop here. */
+     background — so anything that looks for "the card" must not stop here. */
   .fx-dialog { display: block; }
 
-  /* The visible "card". Column flex + overflow hidden + viewport max-height,
-     exactly the box feature3 resizes. Deliberately NOT positioned by default:
-     the resize layer is position:absolute; inset:0 and must anchor to the
-     card, so feature3 has to make the card a containing block itself (we
-     can't know Instagram's card is positioned). ?cardpos=relative opts in. */
+  /* The visible "card": column flex + overflow hidden + viewport max-height. */
   .fx-card {
     background: #fff;
     color: #262626;
@@ -63,7 +53,6 @@
     flex-direction: column;
     box-shadow: 0 8px 40px rgba(0, 0, 0, 0.35);
   }
-  .fx-card--relative { position: relative; }
 
   .fx-header {
     position: relative;
@@ -110,32 +99,14 @@
     flex-direction: row;
     min-width: 0;
   }
-  /* mode=clip: an intermediate fixed-height overflow:hidden ancestor. Also a
-     flex row so insertAboveList keeps climbing to the card. */
-  .fx-clip {
-    display: flex;
-    flex-direction: row;
-    height: 356px;
-    overflow: hidden;
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-  /* mode=flex: wrapper + list grow/shrink with the card. */
-  .fx-listwrap--flex {
-    flex: 1 1 auto;
-    min-height: 0;
-  }
 
-  /* The scroll container. Height/overflow are set INLINE by fixture.js per
-     mode (feature3 reads inline styles), only the width rule lives here. */
+  /* The scroll container. Height/overflow are set INLINE by fixture.js (like
+     Instagram's fixed-height list); only the width rule lives here. */
   .ig-scroll {
     flex: 1 1 auto;
     min-width: 0;
     position: relative;
   }
-  /* mode=window: react-window shape — tall spacer, absolutely positioned rows. */
-  .fx-spacer { position: relative; width: 100%; }
-  .fx-row--abs { position: absolute; left: 0; right: 0; }
 
   .fx-row {
     display: flex;
@@ -187,16 +158,11 @@
   <div id="fx-badge"></div>
 
   <!-- Load order mirrors manifest.json's instagram.com entry for the files
-       under test (config → ui → feature3), preceded by the chrome.* shim the
-       content scripts expect to find on window. Scripts sit at the END of
-       <body> because content scripts run at document_idle: feature3 observes
-       document.body at load time, which must therefore already exist.
-       fixture.js runs last and builds the modal, so — like on instagram.com —
-       the dialog appears AFTER feature3 has installed its MutationObserver. -->
-  <script src="chrome-shim.js"></script>
+       under test (config → ui). Neither touches chrome.* so no shim is needed.
+       fixture.js runs last: it builds the modal and injects the real panels
+       through BWI.ui, exactly the way feature2.js / feature7.js do. -->
   <script src="../../src/config.js"></script>
   <script src="../../src/ui.js"></script>
-  <script src="../../src/feature3.js"></script>
   <script src="fixture.js"></script>
 </body>
 </html>

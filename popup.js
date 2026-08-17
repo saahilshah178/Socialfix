@@ -104,11 +104,12 @@
           ],
         },
         {
-          name: "Resizable Followers / Following window",
-          // RESIZABLE_MODALS may not exist in this config yet — undefined = on.
-          enabled: on(cfg.RESIZABLE_MODALS),
+          name: "Wider Followers / Following window",
+          // Ships off (BIGGER_MODALS: false in src/config.js) — widen-only,
+          // opt-in; the injected panels already fit the native modal.
+          enabled: cfg.BIGGER_MODALS === true,
           how: [
-            "Drag any edge or corner of the list window; double-click a handle to reset",
+            "Opt-in: set BIGGER_MODALS to true in src/config.js to widen the list window",
           ],
         },
       ],

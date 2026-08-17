@@ -40,30 +40,14 @@
     // Feature 3: widen Instagram's own Followers/Following modals so there's a
     // little more room for both the native list and our injected subsection.
     // DEFAULT OFF: Instagram's 2026 modal virtualizes its list with react-window,
-    // and an earlier build that forced an explicit height on that scroll
-    // container broke rendering (the native list went blank). This one-shot
-    // widen never touches the list height, but it ships off — our panel is a
-    // bounded, internally-scrolling section that already fits the native modal.
-    // Set true to opt back into the wider card. (Height is handled by the
-    // drag-resize below, which verifies the list still renders and rolls back
-    // if it doesn't.)
+    // and forcing an explicit height on that scroll container broke rendering
+    // (the native list went blank). feature3 now only WIDENS the card (never
+    // touches the list height), but it ships off — our panel is a bounded,
+    // internally-scrolling section that already fits the native modal. Set true
+    // to opt back into the wider card.
     BIGGER_MODALS: false,
     MODAL_WIDTH_PX: 560, // target width of the widened modal card
-    MODAL_HEIGHT_VH: 85, // unused since 2026-08-15 — height is user-driven (RESIZABLE_MODALS)
-
-    // Feature 3 (cont.): drag-to-resize. Eight transparent handles sit on the
-    // edges/corners of the Followers/Following modal card (any profile); drag
-    // one to resize the modal both ways, double-click one to reset. The chosen
-    // size is remembered in chrome.storage.local and applies to every list
-    // modal, replacing the MODAL_WIDTH_PX default above once set. Width is
-    // always safe. Height is kept only if Instagram's list actually renders into
-    // the taller box — feature3.js checks that after the first resize and each
-    // drag, and silently falls back to width-only (vertical handles hidden) when
-    // it doesn't. See the mode notes at the top of that file.
-    RESIZABLE_MODALS: true, // drag handles on the Followers/Following modal card
-    MODAL_MIN_WIDTH_PX: 320, // a drag can't shrink the card narrower than this
-    MODAL_MIN_HEIGHT_PX: 300, // …or shorter than this
-    MODAL_SIZE_KEY: "bwi_modal_size", // chrome.storage.local key holding {w,h,hBlocked}
+    MODAL_HEIGHT_VH: 85, // (retained for posterity; height is no longer forced)
 
     // Feature 5: keyboard story navigation. While viewing a story, H jumps to
     // the PREVIOUS user's story and L jumps to the NEXT user's story (skipping

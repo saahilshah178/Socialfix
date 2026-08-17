@@ -1,24 +1,21 @@
 // Socialfix test fixture — builds a stand-in for Instagram's Followers/Following
 // modal on a file:// page and exposes `window.__fx` so a headless browser can
-// drive feature3's drag-to-resize and the panel collapse toggle without an
-// extension, a network, or a login.
+// drive the injected panels (Feature 2 / Feature 7, built by the REAL
+// src/ui.js) and their collapse toggle without an extension, a network, or a
+// login.
 //
-// Runs AFTER chrome-shim.js, config.js, ui.js and feature3.js (see
-// ig-modal.html). Deliberately does NOT try/catch anything: a fixture bug or a
-// feature3 exception must surface in the console (`$B console`), never be
-// swallowed. window.__fx.errors additionally collects them (without
-// preventDefault, so they still reach the console).
+// Runs AFTER config.js and ui.js (see ig-modal.html). Deliberately does NOT
+// try/catch anything: a fixture bug or a ui.js exception must surface in the
+// console (`$B console`), never be swallowed. window.__fx.errors additionally
+// collects them (without preventDefault, so they still reach the console).
 //
 // Query params (all optional):
-//   mode=fixed|flex|window|clip   how the native list is sized (default fixed)
 //   title=following|followers     modal title → which panel is built (default following)
 //   panel=1|0                     inject the matching Feature 2 / Feature 7 panel (default 1)
-//   centered=1|0                  card centered in the viewport (1) or pinned top-left (0)
-//   rows=N                        native rows (default 60 — must overflow the 356px list)
+//   rows=N                        native rows (default 60 — overflows the 356px list)
 //   panelRows=N                   fake users in the panel (default 12)
-//   panelDelay=ms                 insert the panel this long after the dialog (default 0)
-//   cardpos=static|relative       CSS position of the card (default static — feature3
-//                                 must make the card a containing block itself)
+//   panelDelay=ms                 insert the panel this long after the dialog (default 0;
+//                                 mimics Feature 2's async scan landing later)
 (function () {
   "use strict";
 
@@ -32,10 +29,7 @@
   // Geometry constants mirror Instagram's 2026 modal.
   const ROW_H = 60; // native row height
   const LIST_H = 356; // inline height Instagram gives the list scroller
-  const WINDOW_BAND = 480; // mode=window: react-window keeps ~8 rows mounted (356px + overscan)
-  const FLEX_CARD_H = 500; // mode=flex: explicit card height the list flexes inside
 
-  const MODES = ["fixed", "flex", "window", "clip"];
   const TITLES = ["following", "followers"];
 
   // ---- params ---------------------------------------------------------------
@@ -51,23 +45,14 @@
 
   // `source.get(k)` → string|null (URLSearchParams, or an override wrapper).
   function parseParams(source) {
-    const mode = (source.get("mode") || "fixed").toLowerCase();
     const title = (source.get("title") || "following").toLowerCase();
-    if (!MODES.includes(mode)) throw new Error(`[fixture] unknown mode=${mode} (want ${MODES.join("|")})`);
     if (!TITLES.includes(title)) throw new Error(`[fixture] unknown title=${title} (want ${TITLES.join("|")})`);
-    const cardpos = source.get("cardpos") || "static";
-    if (cardpos !== "static" && cardpos !== "relative") {
-      throw new Error(`[fixture] unknown cardpos=${cardpos} (want static|relative)`);
-    }
     return {
-      mode,
       title,
       panel: intParam(source.get("panel"), 1, 0, 1),
-      centered: intParam(source.get("centered"), 1, 0, 1),
       rows: intParam(source.get("rows"), 60, 1, 5000),
       panelRows: intParam(source.get("panelRows"), 12, 0, 500),
       panelDelay: intParam(source.get("panelDelay"), 0, 0, 60000),
-      cardpos,
     };
   }
 
@@ -109,8 +94,7 @@
   }
 
   const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
-  // feature3 works off MutationObserver + rAF; two frames plus a short pause is
-  // enough for a mutation → schedule → scan → apply round-trip to land.
+  // Two frames plus a short pause: enough for a DOM insert → layout round-trip.
   async function settle(extraMs) {
     await nextFrame();
     await nextFrame();
@@ -136,8 +120,6 @@
   let dialog = null;
   let card = null;
   let scroll = null;
-  let clipEl = null;
-  let spacer = null; // mode=window only
   let panelRoot = null;
   let panelApi = null;
   let panelReady = null; // Promise<root|null>
@@ -150,18 +132,10 @@
     return params.title === "followers" ? "Remove" : cfg.LABELS.following;
   }
 
-  function buildRow(i, absolute) {
+  function buildRow(i) {
     const uname = `user_${i + 1}`;
-    const row = el("div", "fx-row" + (absolute ? " fx-row--abs" : ""));
+    const row = el("div", "fx-row");
     row.dataset.index = String(i);
-    if (absolute) {
-      // Inline, like react-window does it (some detectors read el.style).
-      row.style.position = "absolute";
-      row.style.left = "0px";
-      row.style.top = i * ROW_H + "px";
-      row.style.height = ROW_H + "px";
-      row.style.width = "100%";
-    }
     const picLink = el("a");
     picLink.href = `/${uname}/`;
     const img = el("img");
@@ -184,31 +158,16 @@
     return row;
   }
 
-  // mode=window: mount only the rows inside a fixed 480px band starting at
-  // scrollTop — regardless of how tall the container currently is. That is the
-  // stale-height react-window behaviour feature3 must detect: grow the
-  // container and the extra area stays empty until Instagram re-measures.
-  function renderWindow() {
-    const top = scroll.scrollTop;
-    const first = Math.max(0, Math.floor(top / ROW_H));
-    const last = Math.min(params.rows - 1, Math.ceil((top + WINDOW_BAND) / ROW_H) - 1);
-    const existing = new Map();
-    for (const r of Array.from(spacer.children)) existing.set(Number(r.dataset.index), r);
-    for (const [i, r] of existing) if (i < first || i > last) r.remove();
-    for (let i = first; i <= last; i++) if (!existing.has(i)) spacer.appendChild(buildRow(i, true));
-  }
-
   function build() {
-    overlay = el("div", "fx-overlay" + (params.centered ? "" : " fx-overlay--topleft"));
+    overlay = el("div", "fx-overlay");
     overlay.id = "fx-overlay";
 
     dialog = el("div", "fx-dialog");
     dialog.id = "fx-dialog";
     dialog.setAttribute("role", "dialog");
 
-    card = el("div", "fx-card" + (params.cardpos === "relative" ? " fx-card--relative" : ""));
+    card = el("div", "fx-card");
     card.id = "fx-card";
-    if (params.mode === "flex") card.style.height = FLEX_CARD_H + "px";
 
     // Header: the title is a plain <div> (not in a button/link) — the thing
     // ui.dialogTitleIs looks for. The close button sits beside it.
@@ -228,39 +187,14 @@
     input.placeholder = "Search";
     search.appendChild(input);
 
-    const listwrap = el("div", "fx-listwrap" + (params.mode === "flex" ? " fx-listwrap--flex" : ""));
+    const listwrap = el("div", "fx-listwrap");
 
     scroll = el("div", "ig-scroll");
     scroll.id = "fx-scroll";
     scroll.style.overflowY = "auto";
-    if (params.mode === "flex") {
-      // No inline height: the list grows/shrinks with the card.
-      scroll.style.flex = "1 1 auto";
-      scroll.style.minHeight = "0";
-    } else {
-      scroll.style.height = LIST_H + "px";
-    }
-    if (params.mode === "window") scroll.style.willChange = "transform";
-
-    clipEl = null;
-    spacer = null;
-    if (params.mode === "window") {
-      spacer = el("div", "fx-spacer");
-      spacer.style.height = params.rows * ROW_H + "px";
-      scroll.appendChild(spacer);
-      renderWindow();
-      scroll.addEventListener("scroll", renderWindow);
-    } else {
-      for (let i = 0; i < params.rows; i++) scroll.appendChild(buildRow(i, false));
-    }
-
-    if (params.mode === "clip") {
-      clipEl = el("div", "fx-clip");
-      clipEl.appendChild(scroll);
-      listwrap.appendChild(clipEl);
-    } else {
-      listwrap.appendChild(scroll);
-    }
+    scroll.style.height = LIST_H + "px"; // Instagram's fixed-height list
+    for (let i = 0; i < params.rows; i++) scroll.appendChild(buildRow(i));
+    listwrap.appendChild(scroll);
 
     card.appendChild(header);
     card.appendChild(search);
@@ -272,7 +206,7 @@
 
   function teardown() {
     if (overlay) overlay.remove();
-    overlay = dialog = card = scroll = clipEl = spacer = null;
+    overlay = dialog = card = scroll = null;
     panelRoot = null;
     panelApi = null;
   }
@@ -343,82 +277,33 @@
 
   // ---- introspection ------------------------------------------------------------
 
-  function storageDump() {
-    return typeof window.__bwiStorageDump === "function" ? window.__bwiStorageDump() : null;
-  }
-
-  function sizeKey() {
-    return cfg.MODAL_SIZE_KEY || "bwi_modal_size";
-  }
-
-  function storedSize() {
-    const dump = storageDump();
-    return dump ? dump[sizeKey()] : undefined;
-  }
-
   function rects() {
-    const layer = card.querySelector(".bwi-resize-layer");
-    const mounted = scroll.querySelectorAll(".fx-row");
     const sr = scroll.getBoundingClientRect();
-    // Bottom-most mounted row (max over all rows — in mode=window DOM order is
-    // mount order, not index order).
-    let lastRowBottom = null;
-    for (const row of mounted) {
-      const b = row.getBoundingClientRect().bottom - sr.top;
-      if (lastRowBottom == null || b > lastRowBottom) lastRowBottom = b;
-    }
-    if (lastRowBottom != null) lastRowBottom = round(lastRowBottom);
-    const cardCs = getComputedStyle(card);
     const panelList = panelRoot ? panelRoot.querySelector(".bwi-list") : null;
     return {
       viewport: { w: window.innerWidth, h: window.innerHeight },
       dialog: rect(dialog),
-      card: Object.assign(rect(card), {
-        inlineWidth: card.style.width,
-        inlineWidthPriority: card.style.getPropertyPriority("width"),
-        inlineHeight: card.style.height,
-        inlineHeightPriority: card.style.getPropertyPriority("height"),
-        position: cardCs.position,
-        maxHeight: cardCs.maxHeight,
-        listMax: cardCs.getPropertyValue("--bwi-list-max").trim(),
-        classes: card.className,
-      }),
+      card: Object.assign(rect(card), { classes: card.className }),
       scroll: Object.assign(rect(scroll), {
         scrollHeight: scroll.scrollHeight,
         clientHeight: scroll.clientHeight,
         scrollTop: scroll.scrollTop,
         overflowY: getComputedStyle(scroll).overflowY,
         inlineHeight: scroll.style.height,
-        inlineHeightPriority: scroll.style.getPropertyPriority("height"),
-        rowsMounted: mounted.length,
-        // Bottom of the last mounted row relative to the scroller's top. In
-        // mode=window this stays at ~480 however tall the scroller gets, so
-        // `coveredToBottom` false + emptyBandPx > 0 == the windowing symptom.
-        lastRowBottomInScroll: lastRowBottom,
-        emptyBandPx: lastRowBottom == null ? null : round(scroll.clientHeight - lastRowBottom),
-        coveredToBottom: lastRowBottom == null ? null : lastRowBottom >= scroll.clientHeight - 1,
+        rowsMounted: scroll.querySelectorAll(".fx-row").length,
       }),
-      clip: clipEl ? rect(clipEl) : null,
       panel: panelRoot
         ? Object.assign(rect(panelRoot), {
             collapsed: panelRoot.classList.contains("bwi-section--collapsed"),
+            rows: panelRoot.querySelectorAll(".bwi-row").length,
             listMaxHeight: panelList ? getComputedStyle(panelList).maxHeight : null,
             listHeight: panelList ? round(panelList.getBoundingClientRect().height) : null,
             // The panel must sit ABOVE the list (insertAboveList), never beside it.
             aboveList: panelRoot.getBoundingClientRect().bottom <= sr.top + 1,
+            // …and inside the card, as a preceding sibling of the list's wrapper.
+            insideCard: card.contains(panelRoot),
           })
         : null,
-      resize: {
-        layer: !!layer,
-        layerRect: rect(layer),
-        handles: card.querySelectorAll(".bwi-resize-handle").length,
-        handleDirs: Array.from(card.querySelectorAll(".bwi-resize-handle")).map((h) => h.dataset.dir || null),
-        resizable: card.classList.contains("bwi-resizable"),
-        bigCard: card.classList.contains("bwi-big-card"),
-        widthOnly: card.classList.contains("bwi-resize--width-only"),
-        bodyResizing: document.body.classList.contains("bwi-resizing"),
-      },
-      storedSize: storedSize(),
     };
   }
 
@@ -460,198 +345,19 @@
     return toggleState();
   }
 
-  function viewportInfo() {
-    const c = card.getBoundingClientRect();
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const cardCenteredX = Math.abs((c.left + c.right) / 2 - vw / 2) <= 2;
-    const cardCenteredY = Math.abs((c.top + c.bottom) / 2 - vh / 2) <= 2;
-    return {
-      innerWidth: vw,
-      innerHeight: vh,
-      dpr: window.devicePixelRatio,
-      params: Object.assign({}, params),
-      cardCenteredX,
-      cardCenteredY,
-      // Per the contract, a drag on a centered axis changes the size by 2× the
-      // pointer delta (the card grows both ways), 1× otherwise.
-      expectedDragFactor: { x: cardCenteredX ? 2 : 1, y: cardCenteredY ? 2 : 1 },
-    };
-  }
-
   const badge = document.getElementById("fx-badge");
-  function setViewportInfo() {
-    const info = viewportInfo();
+  function setBadge() {
     const c = card.getBoundingClientRect();
     const text =
-      `fixture mode=${params.mode} title=${params.title} panel=${params.panel} centered=${params.centered}\n` +
-      `viewport ${info.innerWidth}x${info.innerHeight}  card ${round(c.width)}x${round(c.height)}` +
-      `  factor x${info.expectedDragFactor.x}/y${info.expectedDragFactor.y}`;
-    // Idempotent write: only touch the DOM (and so feature3's observer) when
-    // the text actually changed.
+      `fixture title=${params.title} panel=${params.panel} panelRows=${params.panelRows}\n` +
+      `viewport ${window.innerWidth}x${window.innerHeight}  card ${round(c.width)}x${round(c.height)}`;
+    // Idempotent write: only touch the DOM when the text actually changed.
     if (badge && badge.textContent !== text) badge.textContent = text;
-    return info;
-  }
-
-  // Replace DOM nodes / functions in feature3's state object with printable
-  // stand-ins so `$B js` can JSON.stringify it.
-  function printable(v, depth) {
-    depth = depth || 0;
-    if (v == null || typeof v === "number" || typeof v === "string" || typeof v === "boolean") return v;
-    if (typeof v === "function") return "[fn]";
-    if (v instanceof Element) {
-      return `<${v.tagName.toLowerCase()}${v.id ? "#" + v.id : ""}${v.className ? "." + String(v.className).trim().replace(/\s+/g, ".") : ""}>`;
-    }
-    if (depth >= 4) return "[…]";
-    if (Array.isArray(v)) return v.map((x) => printable(x, depth + 1));
-    if (typeof v === "object") {
-      const out = {};
-      for (const k of Object.keys(v)) out[k] = printable(v[k], depth + 1);
-      return out;
-    }
-    return String(v);
-  }
-
-  function state() {
-    const mr = BWI.modalResize;
-    if (!mr || typeof mr.stateFor !== "function") {
-      return { available: false, reason: "BWI.modalResize.stateFor not present" };
-    }
-    return { available: true, state: printable(mr.stateFor(dialog)) };
-  }
-
-  // ---- interaction ---------------------------------------------------------------
-
-  function handleFor(dir) {
-    const h = card.querySelector(`.bwi-resize-handle--${dir}`);
-    if (!h) {
-      throw new Error(
-        `[fixture] no .bwi-resize-handle--${dir} inside the card — feature3 has not attached its resize layer ` +
-          `(RESIZABLE_MODALS off, dialog not detected, or not settled yet — await __fx.settle())`
-      );
-    }
-    return h;
-  }
-
-  function fire(type, target, x, y, extra, useMouse) {
-    const init = Object.assign(
-      {
-        bubbles: true,
-        cancelable: true,
-        composed: true,
-        view: window,
-        button: 0,
-        buttons: 1,
-        clientX: x,
-        clientY: y,
-        screenX: x,
-        screenY: y,
-      },
-      extra || {}
-    );
-    let ev;
-    if (useMouse) {
-      ev = new MouseEvent(type.replace("pointer", "mouse"), init);
-    } else {
-      // pointerId 1 == Chromium's always-registered mouse pointer, so a
-      // handler's setPointerCapture(1) does not throw NotFoundError (it just
-      // doesn't capture, which is fine: we dispatch every event on the handle).
-      ev = new PointerEvent(
-        type,
-        Object.assign({ pointerId: 1, pointerType: "mouse", isPrimary: true, pressure: 0.5, width: 1, height: 1 }, init)
-      );
-    }
-    target.dispatchEvent(ev);
-    return ev;
-  }
-
-  // Drag the `dir` handle by (dx, dy) CSS px from its center, in `steps`
-  // intermediate pointermoves (one frame apart, so a rAF-throttled resize
-  // handler gets to apply progressively). Resolves after everything settled.
-  // opts: { steps=6, mouse=false (MouseEvent instead of PointerEvent),
-  //         settleMs=1200 } — the wait after pointerup before measuring.
-  // The default is long on purpose: feature3 verifies the grown list ~800ms
-  // after a drag (and may roll back to width-only then) and persists {w,h}
-  // after a 250ms debounce, so a shorter wait shows a state that is still
-  // changing. Pass {settleMs: 50} when only the immediate size matters.
-  const DRAG_SETTLE_MS = 1200;
-  async function drag(dir, dx, dy, opts) {
-    opts = opts || {};
-    const steps = Math.max(1, Number(opts.steps) || 6);
-    const useMouse = !!opts.mouse;
-    const settleMs = opts.settleMs == null ? DRAG_SETTLE_MS : Number(opts.settleMs);
-    dx = Number(dx) || 0;
-    dy = Number(dy) || 0;
-    const h = handleFor(dir);
-    const hr = h.getBoundingClientRect();
-    if (hr.width === 0 && hr.height === 0) {
-      throw new Error(`[fixture] handle ${dir} has no box (display:none — width-only mode hides the vertical handles?)`);
-    }
-    const x0 = hr.left + hr.width / 2;
-    const y0 = hr.top + hr.height / 2;
-    const before = rects();
-    const info = viewportInfo();
-
-    fire("pointerdown", h, x0, y0, null, useMouse);
-    const duringDown = { bodyResizing: document.body.classList.contains("bwi-resizing"), cursor: document.body.getAttribute("data-bwi-cursor") };
-    for (let i = 1; i <= steps; i++) {
-      const t = i / steps;
-      fire("pointermove", h, x0 + dx * t, y0 + dy * t, null, useMouse);
-      await nextFrame();
-    }
-    fire("pointerup", h, x0 + dx, y0 + dy, { buttons: 0, pressure: 0 }, useMouse);
-    await settle(settleMs);
-    const after = rects();
-    return {
-      dir,
-      dx,
-      dy,
-      steps,
-      via: useMouse ? "MouseEvent" : "PointerEvent",
-      from: { x: round(x0), y: round(y0) },
-      to: { x: round(x0 + dx), y: round(y0 + dy) },
-      handleRect: rect(h),
-      duringDown,
-      expectedDragFactor: info.expectedDragFactor,
-      before,
-      after,
-      delta: {
-        cardW: round(after.card.w - before.card.w),
-        cardH: round(after.card.h - before.card.h),
-        scrollH: round(after.scroll.h - before.scroll.h),
-        scrollClientH: after.scroll.clientHeight - before.scroll.clientHeight,
-        panelListH: after.panel && before.panel ? round(after.panel.listHeight - before.panel.listHeight) : null,
-      },
-      storedSize: storedSize(),
-    };
-  }
-
-  async function dblclickHandle(dir, opts) {
-    opts = opts || {};
-    const h = handleFor(dir);
-    const hr = h.getBoundingClientRect();
-    const x = hr.left + hr.width / 2;
-    const y = hr.top + hr.height / 2;
-    const before = rects();
-    h.dispatchEvent(
-      new MouseEvent("dblclick", { bubbles: true, cancelable: true, composed: true, view: window, button: 0, clientX: x, clientY: y, detail: 2 })
-    );
-    // Reset removes the stored size synchronously and re-lays out on the next
-    // scan; 300ms is plenty.
-    await settle(opts.settleMs == null ? 300 : Number(opts.settleMs));
-    return { dir, before, after: rects(), storedSize: storedSize() };
-  }
-
-  async function scrollList(top) {
-    scroll.scrollTop = Number(top) || 0;
-    await settle();
-    return rects().scroll;
   }
 
   // Tear the modal down and build a fresh one (new [role=dialog] element), like
-  // closing and reopening Instagram's modal — the way to check that feature3
-  // re-applies the persisted size on the NEXT dialog without a page reload.
-  // `overrides` may change any query param, e.g. reopen({mode:"flex"}).
+  // closing and reopening Instagram's modal. `overrides` may change any query
+  // param, e.g. reopen({title:"followers"}).
   async function reopen(overrides, opts) {
     const o = overrides || {};
     opts = opts || {};
@@ -662,48 +368,24 @@
     build();
     schedulePanel();
     await panelReady;
-    // Long default for the same reason as drag(): the new dialog re-runs mode
-    // detection + the 800ms verify before its state is final.
-    await settle(opts.settleMs == null ? DRAG_SETTLE_MS : Number(opts.settleMs));
-    setViewportInfo();
-    return rects();
-  }
-
-  async function resetSize(opts) {
-    opts = opts || {};
-    const mr = BWI.modalResize;
-    if (!mr || typeof mr.reset !== "function") throw new Error("[fixture] BWI.modalResize.reset not present");
-    const r = mr.reset();
-    if (r && typeof r.then === "function") await r;
     await settle(opts.settleMs == null ? 300 : Number(opts.settleMs));
+    setBadge();
     return rects();
   }
 
   // ---- public API ---------------------------------------------------------------
 
   const fx = {
-    // constants the README refers to
     ROW_H,
     LIST_H,
-    WINDOW_BAND,
-    FLEX_CARD_H,
     errors,
     settle,
     nextFrame,
     rects,
     toggleState,
     clickToggle,
-    viewportInfo,
-    setViewportInfo,
-    state,
-    drag,
-    dblclickHandle,
-    scrollList,
     reopen,
-    resetSize,
-    storage: storageDump,
-    storedSize,
-    resetStorage: () => window.__bwiResetStorage(),
+    setBadge,
     // A `bwi-` panel handle for driving addRow/finish/showError by hand.
     get panelApi() {
       return panelApi;
@@ -727,9 +409,6 @@
     get overlay() {
       return overlay;
     },
-    get clip() {
-      return clipEl;
-    },
     get panelRoot() {
       return panelRoot;
     },
@@ -740,15 +419,11 @@
 
   build();
   schedulePanel();
-  setViewportInfo();
-  // Keep the badge current after `$B viewport WxH` (debounced; the write is
-  // idempotent so it can't feed feature3's observer a loop).
+  setBadge();
   let badgeTimer = 0;
   window.addEventListener("resize", () => {
     clearTimeout(badgeTimer);
-    badgeTimer = setTimeout(setViewportInfo, 250);
+    badgeTimer = setTimeout(setBadge, 250);
   });
-  console.info(
-    `[fixture] built mode=${params.mode} title=${params.title} panel=${params.panel} centered=${params.centered} rows=${params.rows}`
-  );
+  console.info(`[fixture] built title=${params.title} panel=${params.panel} rows=${params.rows}`);
 })();
