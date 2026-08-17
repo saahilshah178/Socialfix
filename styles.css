@@ -73,14 +73,40 @@
   min-width: 0;
 }
 
+/* "▴ Hide" / "▾ Show" pill inside the toggle (ui.buildCollapseToggle). The
+   glyph and the label are SEPARATE spans and are never rotated or transformed:
+   an earlier version rotated the whole caret span -90° when collapsed, which
+   turned its "Show" text sideways and made the arrow vanish (Aug 15 fix). The
+   glyph swap (Show → ▾ down, Hide → ▴ up) is done in JS, not CSS. */
 .bwi-caret {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
   font-size: 11px;
-  opacity: 0.7;
-  transition: transform 0.15s ease;
+  font-weight: 600;
+  line-height: 1;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(168, 168, 168, 0.18);
+  opacity: 0.9;
+  white-space: nowrap;
 }
 
-.bwi-section--collapsed .bwi-caret {
-  transform: rotate(-90deg);
+.bwi-section__toggle:hover .bwi-caret {
+  background: rgba(168, 168, 168, 0.32);
+}
+
+.bwi-caret__glyph {
+  /* U+25B4/U+25BE are the SMALL triangles — keep them at ~12px or the arrow
+     reads as a speck (the whole point of this fix is a visible arrow). */
+  font-size: 12px;
+  line-height: 1;
+}
+
+.bwi-caret__label {
+  min-width: 2.6em; /* "Hide" / "Show" — same box either way, no header jump */
+  text-align: left;
 }
 
 .bwi-section--collapsed .bwi-list,
@@ -107,8 +133,10 @@
 .bwi-list {
   margin-top: 10px;
   /* Bounded + scrollable so the section is a compact panel at the top of the
-     native modal and leaves the native list plenty of room below it. */
-  max-height: min(32vh, 240px);
+     native modal and leaves the native list plenty of room below it. When the
+     user drag-resizes the modal (feature3.js) it sets --bwi-list-max on the
+     modal card so the panel can use a share of the extra height. */
+  max-height: var(--bwi-list-max, min(32vh, 240px));
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -471,6 +499,130 @@ article[data-testid="tweet"].bwi-x-selected {
 .bwi-scope input {
   accent-color: #0095f6;
 }
+
+/* ---- Instagram: drag-to-resize Followers/Following modal (feature3.js) ----
+   A pointer-events:none overlay is appended INSIDE Instagram's modal card (so
+   "click outside closes" logic still sees the pointer inside the card); only
+   the eight thin handles take pointer events. Handles are transparent — the
+   cursor is the affordance, plus a small grip in the bottom-right corner that
+   fades in on hover. Edge strips are inset 14px from the corners so the corner
+   squares win there. Right/left strips are 6px so they overlap as little of a
+   native scrollbar as possible. */
+.bwi-resize-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2147483000;
+}
+
+.bwi-resize-handle {
+  position: absolute;
+  pointer-events: auto;
+  background: transparent;
+  touch-action: none;
+  user-select: none;
+}
+
+.bwi-resize-handle--n {
+  top: 0;
+  left: 14px;
+  right: 14px;
+  height: 6px;
+  cursor: ns-resize;
+}
+.bwi-resize-handle--s {
+  bottom: 0;
+  left: 14px;
+  right: 14px;
+  height: 6px;
+  cursor: ns-resize;
+}
+.bwi-resize-handle--e {
+  top: 14px;
+  bottom: 14px;
+  right: 0;
+  width: 6px;
+  cursor: ew-resize;
+}
+.bwi-resize-handle--w {
+  top: 14px;
+  bottom: 14px;
+  left: 0;
+  width: 6px;
+  cursor: ew-resize;
+}
+.bwi-resize-handle--ne {
+  top: 0;
+  right: 0;
+  width: 14px;
+  height: 14px;
+  cursor: nesw-resize;
+}
+.bwi-resize-handle--nw {
+  top: 0;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+}
+.bwi-resize-handle--se {
+  bottom: 0;
+  right: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+}
+.bwi-resize-handle--sw {
+  bottom: 0;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  cursor: nesw-resize;
+}
+
+/* Bottom-right grip: two short strokes, visible while hovering the card or
+   dragging any handle. Inset so the card's rounded corner doesn't clip it. */
+.bwi-resize-handle--se::after {
+  content: "";
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid rgba(168, 168, 168, 0.85);
+  border-bottom: 2px solid rgba(168, 168, 168, 0.85);
+  border-radius: 0 0 2px 0;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.bwi-resizable:hover .bwi-resize-handle--se::after,
+.bwi-resizable.bwi-resizing .bwi-resize-handle--se::after {
+  opacity: 1;
+}
+
+/* When the native list turns out not to be growable (see feature3.js
+   "none" mode) the vertical handles are hidden — width-only resize. */
+.bwi-resizable.bwi-resize--width-only .bwi-resize-handle--n,
+.bwi-resizable.bwi-resize--width-only .bwi-resize-handle--s,
+.bwi-resizable.bwi-resize--width-only .bwi-resize-handle--ne,
+.bwi-resizable.bwi-resize--width-only .bwi-resize-handle--nw,
+.bwi-resizable.bwi-resize--width-only .bwi-resize-handle--sw {
+  display: none;
+}
+.bwi-resizable.bwi-resize--width-only .bwi-resize-handle--se {
+  cursor: ew-resize;
+}
+
+/* While a drag is in progress: no accidental text selection anywhere, and the
+   whole page shows the resize cursor so it doesn't flicker over the list. */
+body.bwi-resizing,
+body.bwi-resizing * {
+  user-select: none !important;
+}
+body.bwi-resizing[data-bwi-cursor="ns"] * { cursor: ns-resize !important; }
+body.bwi-resizing[data-bwi-cursor="ew"] * { cursor: ew-resize !important; }
+body.bwi-resizing[data-bwi-cursor="nwse"] * { cursor: nwse-resize !important; }
+body.bwi-resizing[data-bwi-cursor="nesw"] * { cursor: nesw-resize !important; }
 
 /* Toasts */
 #bwi-toast-host {

@@ -10,7 +10,7 @@ _(unofficial)_ is corroborated but not printed in Google's docs.
 
 | Thing | Where | Status |
 |---|---|---|
-| MV3 manifest with icons, name, ≤132-char description, version 2.1.0 | `manifest.json` | ✅ ready |
+| MV3 manifest with icons, name, ≤132-char description, version 2.2.0 | `manifest.json` | ✅ ready |
 | Toolbar icon set 16/32/48/128 | `icons/` (`scripts/gen-icons.js` regenerates) | ✅ ready |
 | Store-listing icon (96×96 glyph + 16px padding in a 128×128 canvas, per Google's spec) | `store-assets/store-icon-128.png` | ✅ ready |
 | Small promo tile 440×280 (required) + marquee 1400×560 (optional) | `store-assets/` (`scripts/gen-promo.py` regenerates) | ✅ ready |
@@ -56,7 +56,8 @@ frames needed. They must show the real product. Suggested set, in order:
 2. YouTube Liked videos with the **Select toolbar** and a few rows selected.
 3. X Likes page in **Select mode** with tweets outlined + the floating toolbar.
 4. Reddit Saved page with the **bulk unsave toolbar** visible.
-5. The popup (daily counter + Stop button) over any supported site.
+5. The popup (per-site features & shortcuts cheat sheet, Instagram daily
+   counter, Stop button) over any supported site.
 
 Tip: set your Chrome window to exactly 1280×800 before capturing
 (on macOS: `open -a "Google Chrome" --args --window-size=1280,800`, or just
@@ -64,22 +65,11 @@ crop). Blur/crop your own username where you care.
 
 ## 4. Build the upload zip
 
-> ⚠️ **Delete the stale build first.** `Socialfix-extension.zip` and the
-> `Socialfix-extension/` folder in the repo root are the **pre-rename Aug 3
-> build**: name "Better Web Insta", version 2.0.0, a 176-char description
-> (over the 132 limit), **no icons**, and a TikTok content-script entry for the
-> platform you removed. Uploading it would fail validation or ship removed
-> features and re-introduce fixed bugs. I left them in place rather than
-> deleting files I didn't create — remove them yourself so they can't be
-> picked by mistake:
-> ```sh
-> rm -rf Socialfix-extension Socialfix-extension.zip
-> ```
 > The only correct artifact is `dist/socialfix-<version>.zip` from the script
-> below.
+> below (`dist/` is git-ignored; older zips in it are just previous builds).
 
 ```sh
-./scripts/package.sh        # → dist/socialfix-2.1.0.zip
+./scripts/package.sh        # → dist/socialfix-2.2.0.zip
 ```
 
 The zip contains only runtime files (`manifest.json` at the zip root, `src/`,
@@ -164,9 +154,10 @@ by, or sponsored by Instagram/Meta, YouTube/Google, X Corp., or Reddit.
   `Socialfix has one purpose: letting users clean up their own activity (follows, likes, saved posts) on the social sites they use, by adding bulk-action tools with built-in rate limiting, plus small quality-of-life aids (promoted-post filters and keyboard shortcuts) on those same sites.`
 - **Permission justifications:**
   - `storage` — "Stores daily action counters (to enforce the extension's
-    built-in rate-limit budgets) and local caches of the user's own
+    built-in rate-limit budgets), local caches of the user's own
     follower/following lists so the Instagram panels don't re-scan on every
-    open. All data stays on-device."
+    open, and small UI preferences (the remembered size of the
+    Followers/Following window). All data stays on-device."
   - (No other API permissions are requested. If the form lists the four sites
     as host permissions because of the content-script match patterns, use the
     per-site justifications below.)
@@ -209,7 +200,45 @@ by, or sponsored by Instagram/Meta, YouTube/Google, X Corp., or Reddit.
   draft (or enable auto-publish on approval).
 - Updates later: bump `version` in `manifest.json` (must strictly increase),
   re-run `scripts/package.sh`, upload the new zip — every update goes through
-  the same review.
+  the same review. See §7 for the exact steps.
+
+## 7. Shipping an update to an already-published listing (v2.2.0)
+
+You've published once, so the account, listing, privacy answers and policy
+URL all exist. An update is a **new package on the same item** — nothing else
+has to change unless you want it to:
+
+1. `manifest.json` `version` is already bumped to **2.2.0** (2.1.0 → 2.2.0;
+   the store rejects a version that isn't strictly greater than the live one).
+2. Build the zip: `./scripts/package.sh` → `dist/socialfix-2.2.0.zip`
+   (syntax-checks every script first). Make sure `DRY_RUN` is `false` in
+   `src/config.js` — it is.
+3. Dashboard → your item → left nav **Package** → **Upload new package** →
+   pick `dist/socialfix-2.2.0.zip`. The dashboard shows the parsed manifest
+   (name, version 2.2.0, description) — check it says 2.2.0.
+4. **Store listing** tab (optional but recommended): the detailed description
+   still says everything true, but two lines are worth adding under
+   *Instagram* so the listing matches the product:
+   `• Drag any edge or corner of the Followers/Following window to resize it (size is remembered)`
+   `• The toolbar popup is a features-and-shortcuts cheat sheet for every site`
+   Screenshots stay valid; replace the popup screenshot (#5) if you took one,
+   since the popup now shows the cheat sheet.
+5. **Privacy** tab: no new permissions (still only `storage`, no
+   host_permissions, no remote code) and no new data category. The one thing
+   worth touching is the `storage` **permission justification** (§5 above,
+   already reworded) — append "and small UI preferences (the remembered size
+   of the Followers/Following window)" so it still describes everything the
+   permission is used for (`bwi_modal_size` in `chrome.storage.local`; the
+   popup's last tab lives in the popup page's own localStorage). `PRIVACY.md`
+   (the hosted policy) was updated with the same bullet and a new
+   "Last updated" date; push it so the public URL reflects that.
+6. Click **Submit for review**. Updates go through the same review queue as
+   new items (days to weeks); the live 2.1.0 keeps serving until 2.2.0 is
+   approved and published (leave auto-publish on if it's on). Don't withdraw
+   and resubmit — it resets your place.
+
+Nothing in this release touches the trademark, single-purpose or data-use
+posture described in the "Legal & policy reality check" below.
 
 ---
 
@@ -264,7 +293,7 @@ Plain-language, not legal advice:
   treats a rejection as "not a supported site", instead of reading `tab.url`
   (which would have required `tabs` or host permissions). Fewer permissions =
   faster review.
-- ✅ Version format valid (`2.1.0`).
+- ✅ Version format valid (`2.2.0`).
 - ✅ Zip has `manifest.json` at its root.
 - ⚠️ `DRY_RUN` must be `false` in the shipped zip (it is).
 - ⚠️ Chrome sync is off for these caches (`storage.local`, not `sync`) — no
