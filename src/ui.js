@@ -220,6 +220,64 @@
     return row;
   }
 
+  // Shared collapse toggle for the injected panels: a "▴ Hide" / "▾ Show" pill
+  // followed by the section title, all inside ONE <button class="bwi-section__toggle">.
+  // Clicking toggles the "bwi-section--collapsed" class on `root`.
+  // Returns { button, setCollapsed(bool), isCollapsed() }.
+  //
+  // Both Instagram panels (Feature 2's "don't follow you back" and Feature 7's
+  // "no longer follow you") use this so they can never drift apart again: they
+  // used to build their own carets — one a lone tiny "▾" glyph, the other a
+  // "▸ Show" span that CSS rotated -90° when collapsed, turning the label
+  // sideways and hiding the arrow. The glyph and label are SEPARATE spans, the
+  // arrow direction is swapped here in JS (down = Show, up = Hide — user's
+  // spec: the arrow must be visible in both states) and nothing is ever
+  // transformed. `titleEl` is appended as-is so callers can keep mutating its
+  // textContent afterwards (renderSubsection's finish()/showError()).
+  function buildCollapseToggle(root, titleEl, opts = {}) {
+    const button = document.createElement("button");
+    button.className = "bwi-section__toggle";
+    button.type = "button";
+
+    const caret = document.createElement("span");
+    caret.className = "bwi-caret";
+    const glyph = document.createElement("span");
+    glyph.className = "bwi-caret__glyph";
+    const label = document.createElement("span");
+    label.className = "bwi-caret__label";
+    caret.appendChild(glyph);
+    caret.appendChild(label);
+
+    button.appendChild(caret);
+    button.appendChild(titleEl);
+
+    function isCollapsed() {
+      return root.classList.contains("bwi-section--collapsed");
+    }
+
+    // ONE render for both the initial paint and every click, so the expanded
+    // and collapsed states are always derived from the class and can't drift.
+    function render() {
+      const collapsed = isCollapsed();
+      glyph.textContent = collapsed ? "▾" : "▴"; // ▾ Show / ▴ Hide
+      label.textContent = collapsed ? "Show" : "Hide";
+      button.title = collapsed ? "Show this list" : "Hide this list";
+      button.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    }
+
+    function setCollapsed(collapsed) {
+      root.classList.toggle("bwi-section--collapsed", !!collapsed);
+      render();
+    }
+
+    button.addEventListener("click", () => setCollapsed(!isCollapsed()));
+
+    if (opts.collapsed === true) root.classList.add("bwi-section--collapsed");
+    render();
+
+    return { button, setCollapsed, isCollapsed };
+  }
+
   // A collapsible titled list of users with an optional per-row action button.
   // Read-only-friendly (Feature 7 "recently unfollowed you"): the caller passes
   // the full `users` array and, optionally, { rowActionLabel, onRowAction }.
@@ -230,19 +288,14 @@
 
     const header = document.createElement("div");
     header.className = "bwi-section__header";
-    const titleWrap = document.createElement("button");
-    titleWrap.className = "bwi-section__toggle";
-    titleWrap.type = "button";
-    titleWrap.title = "Show/hide this list";
-    const caret = document.createElement("span");
-    caret.className = "bwi-caret";
-    caret.textContent = "▾";
-    titleWrap.appendChild(caret);
-    const title = document.createElement("div");
+    const title = document.createElement("span");
     title.className = "bwi-section__title";
     title.textContent = titleText;
-    titleWrap.appendChild(title);
-    header.appendChild(titleWrap);
+    // `!!` keeps the old truthy semantics of opts.collapsed for callers.
+    const toggle = buildCollapseToggle(root, title, {
+      collapsed: !!opts.collapsed,
+    });
+    header.appendChild(toggle.button);
     root.appendChild(header);
 
     // Optional muted clarifying line under the title (e.g. a caveat about what
@@ -275,15 +328,6 @@
         }
         list.appendChild(row);
       });
-    }
-
-    titleWrap.addEventListener("click", () => {
-      const collapsed = root.classList.toggle("bwi-section--collapsed");
-      caret.textContent = collapsed ? "▸ Show" : "▾ Hide";
-    });
-    if (opts.collapsed) {
-      root.classList.add("bwi-section--collapsed");
-      caret.textContent = "▸ Show";
     }
 
     return { root };
@@ -342,22 +386,15 @@
     header.className = "bwi-section__header";
 
     // Collapse toggle so the section can be folded away to give the native
-    // list room. The caret + title together act as the toggle.
-    const titleWrap = document.createElement("button");
-    titleWrap.className = "bwi-section__toggle";
-    titleWrap.type = "button";
-    titleWrap.title = "Show/hide this list";
-
-    const caret = document.createElement("span");
-    caret.className = "bwi-caret";
-    caret.textContent = "▾";
-    titleWrap.appendChild(caret);
-
-    const title = document.createElement("div");
+    // list room. The "Hide/Show" pill + title together act as the toggle
+    // (shared with Feature 7's panel via buildCollapseToggle). The title is
+    // created first because finish()/showError() below keep rewriting its
+    // textContent after the toggle is built.
+    const title = document.createElement("span");
     title.className = "bwi-section__title";
     title.textContent = "Finding who doesn't follow you back…";
-    titleWrap.appendChild(title);
-    header.appendChild(titleWrap);
+    const toggle = buildCollapseToggle(root, title);
+    header.appendChild(toggle.button);
 
     const actions = document.createElement("div");
     actions.className = "bwi-section__actions";
@@ -440,10 +477,6 @@
     unfollowAllBtn.addEventListener("click", () => handlers.onUnfollowAll());
     stopBtn.addEventListener("click", () => handlers.onStop());
     refreshBtn.addEventListener("click", () => handlers.onRefresh());
-    titleWrap.addEventListener("click", () => {
-      const collapsed = root.classList.toggle("bwi-section--collapsed");
-      caret.textContent = collapsed ? "▸" : "▾";
-    });
 
     function setProgress(msg, { busy } = {}) {
       if (msg == null) {
@@ -499,6 +532,7 @@
     findButtonByText,
     toast,
     buildUserRow,
+    buildCollapseToggle,
     renderSubsection,
     renderListSubsection,
   };

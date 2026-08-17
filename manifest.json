@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Socialfix",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Bulk unfollow, unlike and unsave with built-in rate limits, plus feed cleanup and shortcuts for Instagram, YouTube, X and Reddit.",
   "permissions": ["storage"],
   "icons": {

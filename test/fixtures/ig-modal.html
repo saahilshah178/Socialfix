@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Socialfix fixture — Instagram Followers/Following modal</title>
+<!-- The extension's real stylesheet, straight from the repo (absolute file path). -->
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  /* Fixture-only chrome. Everything here is prefixed fx- so it can never be
+     mistaken for extension markup (bwi-) or Instagram markup. Values mirror
+     what Instagram's 2026 modal actually computes to (white 12px-radius card,
+     43px header, 356px inline list height) so feature3's structural
+     heuristics — findCard / findScrollContainer / dialogTitleIs — see the
+     same shapes they see on instagram.com. */
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    color: #262626;
+    background: #fafafa;
+    overflow: hidden; /* IG locks page scroll while a modal is open */
+  }
+
+  /* Fake page underneath the overlay so the dimming reads in screenshots. */
+  .fx-page { padding: 24px 32px; }
+  .fx-page__bar { height: 44px; border-bottom: 1px solid #dbdbdb; margin-bottom: 24px; }
+  .fx-page__block { height: 120px; background: #efefef; border-radius: 8px; margin-bottom: 16px; }
+
+  /* Full-viewport dimmed overlay; centers the dialog by default. */
+  .fx-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .fx-overlay--topleft {
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 40px;
+    box-sizing: border-box;
+  }
+
+  /* [role=dialog] is a TRANSPARENT wrapper (like Instagram's) — no radius, no
+     background — so findCard must climb to .fx-card, not stop here. */
+  .fx-dialog { display: block; }
+
+  /* The visible "card". Column flex + overflow hidden + viewport max-height,
+     exactly the box feature3 resizes. Deliberately NOT positioned by default:
+     the resize layer is position:absolute; inset:0 and must anchor to the
+     card, so feature3 has to make the card a containing block itself (we
+     can't know Instagram's card is positioned). ?cardpos=relative opts in. */
+  .fx-card {
+    background: #fff;
+    color: #262626;
+    border-radius: 12px;
+    width: 400px;
+    max-height: calc(100vh - 40px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.35);
+  }
+  .fx-card--relative { position: relative; }
+
+  .fx-header {
+    position: relative;
+    flex: 0 0 auto;
+    box-sizing: border-box; /* 43px INCLUDING the border, like Instagram's */
+    height: 43px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid #dbdbdb;
+    font-weight: 600;
+    font-size: 16px;
+  }
+  .fx-close {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 0;
+    background: none;
+    font-size: 18px;
+    line-height: 1;
+    padding: 6px;
+    cursor: pointer;
+    color: #262626;
+  }
+
+  .fx-search { flex: 0 0 auto; padding: 8px 16px; }
+  .fx-search input {
+    width: 100%;
+    box-sizing: border-box;
+    height: 36px;
+    border: 0;
+    border-radius: 8px;
+    background: #efefef;
+    padding: 0 12px;
+    font-size: 14px;
+  }
+
+  /* Instagram wraps the list in a flex ROW container; ui.insertAboveList must
+     climb past this to land the panel above (not beside) the list. */
+  .fx-listwrap {
+    display: flex;
+    flex-direction: row;
+    min-width: 0;
+  }
+  /* mode=clip: an intermediate fixed-height overflow:hidden ancestor. Also a
+     flex row so insertAboveList keeps climbing to the card. */
+  .fx-clip {
+    display: flex;
+    flex-direction: row;
+    height: 356px;
+    overflow: hidden;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  /* mode=flex: wrapper + list grow/shrink with the card. */
+  .fx-listwrap--flex {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  /* The scroll container. Height/overflow are set INLINE by fixture.js per
+     mode (feature3 reads inline styles), only the width rule lives here. */
+  .ig-scroll {
+    flex: 1 1 auto;
+    min-width: 0;
+    position: relative;
+  }
+  /* mode=window: react-window shape — tall spacer, absolutely positioned rows. */
+  .fx-spacer { position: relative; width: 100%; }
+  .fx-row--abs { position: absolute; left: 0; right: 0; }
+
+  .fx-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    height: 60px;
+    box-sizing: border-box;
+  }
+  .fx-row a { color: inherit; text-decoration: none; }
+  .fx-row img { display: block; border-radius: 50%; }
+  .fx-row__name { flex: 1 1 auto; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fx-row button {
+    flex: 0 0 auto;
+    border: 0;
+    border-radius: 8px;
+    background: #efefef;
+    color: #262626;
+    font-weight: 600;
+    font-size: 14px;
+    padding: 7px 16px;
+    cursor: pointer;
+  }
+
+  /* Variant badge for screenshots (outside the dialog; never matched by the
+     extension: it isn't inside [role=dialog] and has no bwi- class). */
+  #fx-badge {
+    position: fixed;
+    left: 8px;
+    bottom: 8px;
+    z-index: 200;
+    pointer-events: none;
+    font: 11px/1.4 ui-monospace, Menlo, Consolas, monospace;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 4px 8px;
+    border-radius: 6px;
+    white-space: pre;
+  }
+</style>
+</head>
+<body>
+  <div class="fx-page" aria-hidden="true">
+    <div class="fx-page__bar"></div>
+    <div class="fx-page__block"></div>
+    <div class="fx-page__block"></div>
+    <div class="fx-page__block"></div>
+  </div>
+  <div id="fx-badge"></div>
+
+  <!-- Load order mirrors manifest.json's instagram.com entry for the files
+       under test (config → ui → feature3), preceded by the chrome.* shim the
+       content scripts expect to find on window. Scripts sit at the END of
+       <body> because content scripts run at document_idle: feature3 observes
+       document.body at load time, which must therefore already exist.
+       fixture.js runs last and builds the modal, so — like on instagram.com —
+       the dialog appears AFTER feature3 has installed its MutationObserver. -->
+  <script src="chrome-shim.js"></script>
+  <script src="../../src/config.js"></script>
+  <script src="../../src/ui.js"></script>
+  <script src="../../src/feature3.js"></script>
+  <script src="fixture.js"></script>
+</body>
+</html>

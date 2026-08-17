@@ -1,7 +1,7 @@
 # Socialfix
 
 A personal, unpacked **Manifest V3** Chrome extension that adds the power-user
-tools five major social sites leave out of their web clients — bulk
+tools four major social sites leave out of their web clients — bulk
 unfollow/unlike/unsave, feed cleanup, promoted-content filters, and
 the keyboard shortcuts that should have shipped by default.
 
@@ -22,7 +22,7 @@ your existing logged-in session.
 |---|---|---|
 | **Instagram** | Shift-click instant unfollow / remove | DOM (rides IG's own dialog) |
 | | "Doesn't follow you back" panel + bulk unfollow | Private API + queue |
-| | Bigger Followers / Following modals | CSS/DOM |
+| | Resizable Followers / Following modals (drag any edge/corner; size remembered) | DOM |
 | | Bulk unsave on the Saved page (multi-select) | Private API + queue |
 | | Keyboard story navigation (`H` / `L` between users) | DOM |
 | | See who dropped off your followers | Private API (read-only) |
@@ -50,13 +50,17 @@ mutating action into a console log instead of a real write.
 2. **"Doesn't follow you back" subsection** — open **your own** profile's
    Following list and a panel appears at the top showing everyone you follow who
    doesn't follow you back. Each has an instant **Unfollow** button, plus an
-   **Unfollow all** button (throttled through the queue).
-3. **Bigger Followers/Following modals** — optionally widens the list modals so
-   the native list and the injected subsections both fit comfortably. Widen-only
-   (forcing a height on Instagram's virtualized list broke its rendering) and
-   **off by default** — the injected panels are compact, internally-scrolling
-   sections that already fit the native modal. Opt in with `BIGGER_MODALS` in
-   `src/config.js`.
+   **Unfollow all** button (throttled through the queue). The panel has a
+   **▴ Hide / ▾ Show** toggle (same control as the Followers panel below).
+3. **Resizable Followers/Following modals** — drag any edge or corner of the
+   list window (any profile) to make it wider and/or taller, like a desktop
+   window; the size you pick is remembered and re-applied next time, and a
+   **double-click on any handle resets** it. Width is always safe; height is
+   kept only if Instagram's list actually renders into the taller box (the
+   extension checks after each drag and, if the list can't grow, silently
+   falls back to width-only with a one-time toast). Toggle with
+   `RESIZABLE_MODALS`; the older `BIGGER_MODALS` (off by default) just sets a
+   wider *initial* width when you haven't dragged a size yet.
 4. **Bulk unsave on the Saved page** — on your own Saved page, click **Select**
    to enter an inline multi-select mode over the post grid, tap the tiles you
    want, then **Unsave (n)** to remove them all through the throttled queue.
@@ -171,9 +175,11 @@ Publishing to the Chrome Web Store instead? See **`PUBLISHING.md`** for the
 full submission guide (assets, listing copy, privacy answers, policy notes);
 `./scripts/package.sh` builds the upload zip.
 
-The toolbar popup shows how many Instagram unfollows you've done today (with a
-progress bar — other actions have their own separate daily budgets) and has a
-global **Stop** button for bulk runs.
+The toolbar popup is a compact **features & shortcuts cheat sheet** — one tab
+per site listing every feature with how to trigger it and its keybinds (read
+live from `src/config.js`, so they can't drift) — plus how many Instagram
+unfollows you've done today (with a progress bar — other actions have their
+own separate daily budgets) and a global **Stop** button for bulk runs.
 
 ---
 
@@ -243,7 +249,8 @@ are out of scope.
 
 ```
 manifest.json          MV3 manifest — per-host content_scripts + load order
-popup.html / popup.js  toolbar popup: daily counters + global Stop
+popup.html / popup.js  toolbar popup: per-site feature/shortcut cheat sheet + IG daily counter + global Stop
+                       (loads src/config.js so keybinds and caps come from one place)
 styles.css             bwi-namespaced injected styles
 icons/                 extension icons 16/32/48/128 (generated)
 src/

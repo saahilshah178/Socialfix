@@ -2,70 +2,253 @@
 <html>
   <head>
     <meta charset="utf-8" />
+    <title>Socialfix</title>
     <style>
+      /* Palette lives in custom properties so the dark-mode block below only
+         has to swap tokens. Accent (#ed4956) is shared with the in-page UI. */
+      :root {
+        color-scheme: light dark;
+        --bg: #fafafa;
+        --fg: #262626;
+        --muted: rgba(38, 38, 38, 0.62);
+        --line: rgba(0, 0, 0, 0.1);
+        --track: #e0e0e0;
+        --btn: rgba(168, 168, 168, 0.22);
+        --btn-hover: rgba(168, 168, 168, 0.36);
+        --seg: rgba(168, 168, 168, 0.22);
+        --seg-active: #ffffff;
+        --seg-shadow: 0 1px 2px rgba(0, 0, 0, 0.14);
+        --kbd-bg: #ffffff;
+        --kbd-line: rgba(0, 0, 0, 0.18);
+        --accent: #ed4956;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #1c1c1e;
+          --fg: #f2f2f2;
+          --muted: rgba(242, 242, 242, 0.6);
+          --line: rgba(255, 255, 255, 0.12);
+          --track: rgba(255, 255, 255, 0.14);
+          --btn: rgba(255, 255, 255, 0.12);
+          --btn-hover: rgba(255, 255, 255, 0.2);
+          --seg: rgba(255, 255, 255, 0.1);
+          --seg-active: #3a3a3c;
+          --seg-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+          --kbd-bg: #2c2c2e;
+          --kbd-line: rgba(255, 255, 255, 0.2);
+        }
+      }
+
       body {
-        width: 260px;
+        width: 340px;
         margin: 0;
-        padding: 14px;
+        padding: 12px;
+        box-sizing: border-box;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
           sans-serif;
-        background: #fafafa;
-        color: #262626;
+        font-size: 12px;
+        line-height: 1.35;
+        background: var(--bg);
+        color: var(--fg);
+      }
+      * {
+        box-sizing: border-box;
+      }
+
+      /* ---- header ---- */
+      .head {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        margin-bottom: 8px;
       }
       h1 {
         font-size: 14px;
-        margin: 0 0 10px;
+        margin: 0;
       }
+      .ver {
+        font-size: 11px;
+        color: var(--muted);
+      }
+
+      /* ---- Instagram unfollow counter ---- */
       .stat {
-        font-size: 13px;
-        margin-bottom: 12px;
+        font-size: 12px;
+        margin-bottom: 8px;
       }
       .stat b {
-        font-size: 16px;
+        font-size: 15px;
       }
       .bar {
-        height: 6px;
+        height: 5px;
         border-radius: 3px;
-        background: #e0e0e0;
+        background: var(--track);
         overflow: hidden;
-        margin-top: 6px;
+        margin-top: 5px;
       }
       .bar > i {
         display: block;
         height: 100%;
-        background: #ed4956;
+        width: 0%;
+        background: var(--accent);
       }
-      button {
+
+      /* ---- stop button + status ---- */
+      #stop {
         width: 100%;
         border: 0;
         border-radius: 8px;
-        padding: 9px;
+        padding: 8px;
+        font: inherit;
         font-size: 13px;
         font-weight: 600;
         cursor: pointer;
-        background: rgba(168, 168, 168, 0.22);
-        color: #262626;
+        background: var(--btn);
+        color: var(--fg);
+      }
+      #stop:hover {
+        background: var(--btn-hover);
+      }
+      button:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
       }
       .hint {
         font-size: 11px;
-        opacity: 0.65;
-        margin-top: 10px;
+        color: var(--muted);
         line-height: 1.4;
+      }
+      #status {
+        margin-top: 6px;
+      }
+      #status:empty {
+        display: none;
+      }
+
+      /* ---- features & shortcuts ---- */
+      .section {
+        margin-top: 10px;
+        padding-top: 8px;
+        border-top: 1px solid var(--line);
+      }
+      /* Segmented control: neutral grey track, active tab is a raised pill. */
+      .tabs {
+        display: flex;
+        gap: 2px;
+        padding: 2px;
+        border-radius: 8px;
+        background: var(--seg);
+        margin-bottom: 6px;
+      }
+      .tab {
+        flex: 1 1 0;
+        min-width: 0;
+        border: 0;
+        border-radius: 6px;
+        padding: 4px 0;
+        font: inherit;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--muted);
+        background: transparent;
+        cursor: pointer;
+      }
+      .tab:hover {
+        color: var(--fg);
+      }
+      .tab[aria-selected="true"] {
+        color: var(--fg);
+        font-weight: 600;
+        background: var(--seg-active);
+        box-shadow: var(--seg-shadow);
+      }
+      /* Bounded, internally-scrolling list so a long tab never blows the
+         popup up past ~550px (Chrome caps action popups at 600px; the
+         Instagram tab is the tallest and lands at ~550px with this cap, ~570px
+         once the Stop status line shows). */
+      .panels {
+        max-height: 336px;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+      }
+      .panel[hidden] {
+        display: none;
+      }
+      .feat {
+        padding: 4px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .feat:last-child {
+        border-bottom: 0;
+      }
+      .feat.off {
+        opacity: 0.45;
+      }
+      .feat-name {
+        font-weight: 600;
+        font-size: 12px;
+      }
+      .feat-how {
+        font-size: 11.5px;
+        color: var(--muted);
+        margin-top: 1px;
+      }
+      .tag {
+        display: inline-block;
+        vertical-align: 1px;
+        margin-left: 5px;
+        padding: 0 5px;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        font-size: 9px;
+        font-weight: 600;
+        line-height: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+      }
+      kbd {
+        display: inline-block;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 11px;
+        line-height: 1.2;
+        padding: 1px 5px;
+        border: 1px solid var(--kbd-line);
+        border-radius: 4px;
+        background: var(--kbd-bg);
+        color: var(--fg);
+        white-space: nowrap;
+      }
+      .foot {
+        margin-top: 8px;
+        padding-top: 6px;
+        border-top: 1px solid var(--line);
       }
     </style>
   </head>
   <body>
-    <h1>Socialfix</h1>
+    <div class="head">
+      <h1>Socialfix</h1>
+      <span class="ver" id="version"></span>
+    </div>
+
     <div class="stat">
       Instagram unfollows today: <b id="count">0</b> / <span id="cap">150</span>
-      <div class="bar"><i id="barfill" style="width: 0%"></i></div>
+      <div class="bar"><i id="barfill"></i></div>
     </div>
-    <button id="stop">Stop bulk run</button>
+    <button id="stop" type="button">Stop bulk run</button>
     <div class="hint" id="status"></div>
-    <div class="hint">
-      Other actions (unlikes, unsaves, YouTube removals) have their own separate
-      daily budgets. Stop works on any supported site.
+
+    <div class="section">
+      <div class="tabs" id="tabs" role="tablist" aria-label="Features &amp; shortcuts"></div>
+      <div class="panels" id="panels"></div>
+      <div class="hint foot">
+        Bulk actions are throttled with separate daily budgets and stop on
+        rate limits · Stop works on any supported site.
+      </div>
     </div>
+
+    <script src="src/config.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

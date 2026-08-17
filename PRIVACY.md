@@ -1,6 +1,6 @@
 # Socialfix — Privacy Policy
 
-_Last updated: August 4, 2026_
+_Last updated: August 15, 2026_
 
 Socialfix is a browser extension that adds bulk-action tools, feed cleanup,
 and keyboard shortcuts to social sites you are already logged into
@@ -30,6 +30,10 @@ storage (`chrome.storage.local`), on your device only:
   usernames from your own follower/following lists.
 - **Your own username** (Instagram), cached so the extension can recognize
   your own profile page.
+- **UI preferences** — the width/height you dragged the Instagram
+  Followers/Following window to (two numbers plus a flag saying whether the
+  height could be applied). The toolbar popup also remembers which of its
+  tabs you last viewed, in the popup page's own local storage.
 
 Because these caches include usernames, they technically count as "user
 data" under Chrome Web Store definitions even though they are processed and
@@ -47,7 +51,8 @@ sent to any third party or to the extension's developer.
 
 ## Permissions
 
-- **storage** — for the local counters and caches described above.
+- **storage** — for the local counters, caches and UI preferences described
+  above.
 - **Site access to instagram.com, youtube.com, x.com, reddit.com** — required
   to add the extension's buttons/panels to those pages and perform the
   actions you explicitly trigger. The extension takes no action on its own;
