@@ -16,8 +16,13 @@
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   const DEFAULT_DAILY_KEY = "bwi_daily_";
-  const todayKey = (prefix = DEFAULT_DAILY_KEY) =>
-    prefix + new Date().toISOString().slice(0, 10);
+  const todayKey = (prefix = DEFAULT_DAILY_KEY) => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return prefix + year + "-" + month + "-" + day;
+  };
 
   async function getDailyCount(prefix = DEFAULT_DAILY_KEY) {
     try {
