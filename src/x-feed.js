@@ -19,6 +19,7 @@
   if (!cfg.X.CHRONO_FEED) return;
 
   let actedForPath = null; // pathname we last auto-switched on
+  let skipNextEnforce = false; // skip next enforce due to back navigation
 
   const text = (el) => (el && el.textContent ? el.textContent.trim() : "");
 
@@ -74,8 +75,16 @@
   function enforce() {
     if (!onHome()) {
       actedForPath = null; // reset so returning to Home switches again
+      skipNextEnforce = false; // allow enforcement on next visit
       return;
     }
+
+    // Skip enforcement if this call is due to a back navigation event
+    if (skipNextEnforce) {
+      skipNextEnforce = false; // consume the flag
+      return;
+    }
+
     if (actedForPath === location.pathname) return;
 
     const following = findFollowingTab();
@@ -88,7 +97,11 @@
     }
   }
 
-  window.addEventListener("popstate", enforce);
+  // Detect back/forward navigation and skip enforcement for that navigation
+  window.addEventListener("popstate", () => {
+    skipNextEnforce = true;
+  });
+
   const observer = new MutationObserver(() => enforce());
   observer.observe(document.body, { childList: true, subtree: true });
   enforce();
