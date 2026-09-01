@@ -24,6 +24,20 @@
     return prefix + year + "-" + month + "-" + day;
   };
 
+  // Per-key mutex chains to serialize concurrent getDailyCount/bumpDailyCount
+  // and reserveDailySlot calls. Prevents concurrent callers from stomping each
+  // other's read-modify-write on the same daily counter.
+  const mutexChains = {};
+  function getMutexChain(prefix) {
+    if (!mutexChains[prefix]) {
+      mutexChains[prefix] = Promise.resolve();
+    }
+    return mutexChains[prefix];
+  }
+  function setMutexChain(prefix, promise) {
+    mutexChains[prefix] = promise;
+  }
+
   async function getDailyCount(prefix = DEFAULT_DAILY_KEY) {
     try {
       const key = todayKey(prefix);
@@ -40,6 +54,34 @@
       const current = await getDailyCount(prefix);
       await chrome.storage.local.set({ [key]: current + n });
     } catch (_) {}
+  }
+
+  // Atomically check if a daily slot is available and reserve it.
+  // Serializes concurrent callers via a per-prefix mutex so they don't stomp
+  // each other's reads or writes to the daily counter. Returns true if a slot
+  // was reserved (current < cap), false if the cap is already met. On success,
+  // the daily count is atomically incremented by 1.
+  async function reserveDailySlot(prefix = DEFAULT_DAILY_KEY, cap = cfg.DAILY_CAP) {
+    const chain = getMutexChain(prefix);
+    let result = false;
+
+    const newChain = chain.then(async () => {
+      try {
+        const key = todayKey(prefix);
+        const res = await chrome.storage.local.get(key);
+        const current = (res && res[key]) || 0;
+        if (current < cap) {
+          await chrome.storage.local.set({ [key]: current + 1 });
+          result = true;
+        }
+      } catch (_) {
+        result = false;
+      }
+    });
+
+    setMutexChain(prefix, newChain);
+    await newChain;
+    return result;
   }
 
   const rand = (min, max) => Math.floor(min + Math.random() * (max - min));
@@ -220,10 +262,12 @@
   };
 
   BWI.queue = queue;
-  // getDailyCount / bumpDailyCount / isActionBlock are exported so callers that
-  // don't drive the bulk queue directly (e.g. Feature 2's per-row unfollow)
-  // can still share the same per-action daily-budget + action-block conventions.
-  BWI.queueUtil = { getDailyCount, bumpDailyCount, isActionBlock };
+  // getDailyCount / bumpDailyCount / reserveDailySlot / isActionBlock are
+  // exported so callers that don't drive the bulk queue directly (e.g. Feature
+  // 2's per-row unfollow) can still share the same per-action daily-budget +
+  // action-block conventions. reserveDailySlot atomically checks and increments
+  // the daily counter, preventing race conditions on concurrent calls.
+  BWI.queueUtil = { getDailyCount, bumpDailyCount, reserveDailySlot, isActionBlock };
 
   // Let the popup remotely stop a running bulk job.
   try {

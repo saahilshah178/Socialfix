@@ -190,11 +190,12 @@
 
   function wireHandlers(panel, nonFollowers, dialog) {
     async function unfollowOne(u, row) {
-      // Per-row unfollows share the bulk run's daily budget — otherwise a
-      // hundred hand-clicked unfollows would leave the counter at zero and a
-      // later "Unfollow all" would still grant a full DAILY_CAP on top of them.
-      const spent = await BWI.queueUtil.getDailyCount();
-      if (spent >= cfg.DAILY_CAP) {
+      // Per-row unfollows share the bulk run's daily budget. Use reserveDailySlot
+      // to atomically check the cap and increment the counter, preventing
+      // concurrent calls from stomping each other's reads/writes and bypassing
+      // the daily limit.
+      const reserved = await BWI.queueUtil.reserveDailySlot();
+      if (!reserved) {
         ui.toast(`Daily unfollow limit reached (${cfg.DAILY_CAP}) — try tomorrow`);
         return;
       }
@@ -202,7 +203,6 @@
       try {
         await api.unfollow(u.pk);
         panel.markRow(u.pk, "done");
-        if (!cfg.DRY_RUN) BWI.queueUtil.bumpDailyCount();
         purgeNonFollower(u.pk);
       } catch (err) {
         if (BWI.queueUtil.isActionBlock(err)) {
